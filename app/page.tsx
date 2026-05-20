@@ -357,7 +357,7 @@ const STEPS: Step[] = [
   { num: "03", title: "You Get Paid Faster", desc: "Track payments in real-time on your dashboard and watch your revenue cycle transform." },
 ];
 
-export default function Home(): JSX.Element {
+export default function Home() {
   const [count, setCount] = useState<CountState>({ claims: 0, providers: 0, revenue: 0, rate: 0 });
 
   useEffect(() => {
