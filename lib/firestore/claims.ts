@@ -1,7 +1,8 @@
 import { db } from "@/lib/firebase";
 import {
   collection, addDoc, updateDoc, deleteDoc,
-  doc, getDocs, getDoc, query, orderBy, serverTimestamp, Timestamp,
+  doc, getDocs, getDoc, query, orderBy, where,
+  serverTimestamp, Timestamp,
 } from "firebase/firestore";
 
 export type ClaimStatus = "draft" | "submitted" | "paid" | "denied" | "pending";
@@ -10,6 +11,7 @@ export interface ClaimCode { code: string; description: string; units: number; c
 
 export interface Claim {
   id?: string;
+  companyId: string;
   patientId: string;
   patientName: string;
   providerId: string;
@@ -27,10 +29,12 @@ export interface Claim {
 
 const COL = "claims";
 
-export async function getClaims(): Promise<Claim[]> {
-  const q = query(collection(db, COL), orderBy("createdAt", "desc"));
+export async function getClaims(companyId?: string): Promise<Claim[]> {
+  const q = companyId
+    ? query(collection(db, COL), where("companyId", "==", companyId), orderBy("createdAt", "desc"))
+    : query(collection(db, COL), orderBy("createdAt", "desc"));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Claim));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Claim));
 }
 
 export async function getClaim(id: string): Promise<Claim | null> {

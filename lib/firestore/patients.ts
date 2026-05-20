@@ -1,35 +1,30 @@
 import { db } from "@/lib/firebase";
 import {
   collection, addDoc, updateDoc, deleteDoc,
-  doc, getDocs, getDoc, query, orderBy, serverTimestamp, Timestamp,
+  doc, getDocs, getDoc, query, orderBy, where, serverTimestamp, Timestamp,
 } from "firebase/firestore";
 
 export interface Insurance {
-  planName: string;
-  memberId: string;
-  groupNumber: string;
-  payer: string;
+  planName: string; memberId: string; groupNumber: string; payer: string;
 }
 
 export interface Patient {
   id?: string;
-  firstName: string;
-  lastName: string;
-  dob: string;
-  gender: string;
-  phone: string;
-  email: string;
-  address: string;
+  companyId: string;
+  firstName: string; lastName: string; dob: string; gender: string;
+  phone: string; email: string; address: string;
   insurance: Insurance;
   createdAt?: Timestamp;
 }
 
 const COL = "patients";
 
-export async function getPatients(): Promise<Patient[]> {
-  const q = query(collection(db, COL), orderBy("createdAt", "desc"));
+export async function getPatients(companyId?: string): Promise<Patient[]> {
+  const q = companyId
+    ? query(collection(db, COL), where("companyId", "==", companyId), orderBy("createdAt", "desc"))
+    : query(collection(db, COL), orderBy("createdAt", "desc"));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Patient));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Patient));
 }
 
 export async function getPatient(id: string): Promise<Patient | null> {

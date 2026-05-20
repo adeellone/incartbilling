@@ -41,20 +41,32 @@ export default function TeamPage() {
     setForm(f => ({ ...f, [k]: e.target.value }));
 
   const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(""); setSaving(true);
-    try {
-      const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      await updateProfile(cred.user, { displayName: form.name });
-      await createUserProfile(cred.user.uid, {
-        email: form.email, displayName: form.name,
-        role: form.role, companyId: companyId!, active: true,
-      });
-      setForm({ name:"", email:"", password:"", role:"billing_staff" });
-      setShowForm(false); load();
-    } catch (err: unknown) {
-      setError((err as { message?: string }).message || "Failed to create user");
-    } finally { setSaving(false); }
-  };
+  e.preventDefault(); setError(""); setSaving(true);
+  try {
+    // Secondary app — does NOT replace your session
+    const { initializeApp, deleteApp } = await import("firebase/app");
+    const { getAuth, createUserWithEmailAndPassword, updateProfile } = await import("firebase/auth");
+
+    const secondaryApp  = initializeApp(
+      (await import("@/lib/firebase")).auth.app.options,
+      "secondary-" + Date.now()
+    );
+    const secondaryAuth = getAuth(secondaryApp);
+
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, form.email, form.password);
+    await updateProfile(cred.user, { displayName: form.name });
+    await createUserProfile(cred.user.uid, {
+      email: form.email, displayName: form.name,
+      role: form.role, companyId: companyId!, active: true,
+    });
+
+    await deleteApp(secondaryApp); // cleanup
+    setForm({ name:"", email:"", password:"", role:"billing_staff" });
+    setShowForm(false); load();
+  } catch (err: unknown) {
+    setError((err as { message?: string }).message || "Failed to create user");
+  } finally { setSaving(false); }
+};
 
   return (
     <div className="dash-content">
