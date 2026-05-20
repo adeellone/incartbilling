@@ -1,36 +1,199 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Incart Billing — Setup Guide
 
-## Getting Started
+## ─── STEP 1: Install Dependencies ───────────────────
 
-First, run the development server:
+```bash
+npm install firebase
+npm run dev
+```
+
+---
+
+## ─── STEP 2: Setup .env.local ───────────────────────
+
+Create `.env.local` in your project root:
+
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSy_YOUR_KEY
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_ID=123456789
+NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abc123
+```
+
+> Get these from: console.firebase.google.com
+> → Your Project → Settings ⚙️ → Your Apps → Web App Config
+
+---
+
+## ─── STEP 3: Enable Firebase Auth ───────────────────
+
+1. Go to console.firebase.google.com
+2. Select your project
+3. Left sidebar → Build → Authentication
+4. Click "Get started"
+5. Sign-in method tab → Click "Email/Password"
+6. Toggle ENABLE → Save ✅
+
+> ⚠️ THIS IS THE #1 REASON REGISTRATION FAILS
+> If Email/Password is not enabled, you get "operation-not-allowed" error
+
+---
+
+## ─── STEP 4: Create Firestore Database ──────────────
+
+Firestore is NoSQL — NO schema needed!
+Collections are created automatically when you first save data.
+
+1. Firebase Console → Build → Firestore Database
+2. Click "Create database"
+3. Select "Production mode"
+4. Choose region: us-central1
+5. Click "Enable" ✅
+
+### Database structure (auto-created on first use):
+
+```
+Firestore
+├── patients/          ← created when you add first patient
+│   └── {id}
+│       ├── firstName, lastName, dob, gender
+│       ├── phone, email, address
+│       └── insurance: { planName, memberId, groupNumber, payer }
+│
+├── providers/         ← created when you add first provider
+│   └── {id}
+│       ├── firstName, lastName, npi, specialty
+│       ├── email, phone, taxId
+│       └── payers: []
+│
+├── claims/            ← created when you add first claim
+│   └── {id}
+│       ├── patientId, patientName
+│       ├── providerId, providerName
+│       ├── serviceDate, status
+│       ├── diagnosisCodes: []
+│       ├── procedureCodes: []
+│       ├── totalCharge, paidAmount
+│       └── notes, createdAt, updatedAt
+│
+└── payments/          ← future use
+```
+
+---
+
+## ─── STEP 5: Set Firestore Rules ────────────────────
+
+1. Firebase Console → Firestore → Rules tab
+2. Replace existing rules with this:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
+
+3. Click "Publish" ✅
+
+---
+
+## ─── STEP 6: Enable Firebase Storage ────────────────
+
+1. Firebase Console → Build → Storage
+2. Click "Get started"
+3. Select "Production mode"
+4. Same region as Firestore
+5. Click "Done" ✅
+
+---
+
+## ─── STEP 7: Run Locally ────────────────────────────
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open: http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Pages:
+- /             → Landing page
+- /register     → Create account
+- /login        → Sign in
+- /dashboard    → Main dashboard (requires login)
+- /patients     → Patient management
+- /claims       → Claims list
+- /claims/new   → New claim form
+- /providers    → Providers list
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## ─── COMMON ERRORS & FIXES ──────────────────────────
 
-To learn more about Next.js, take a look at the following resources:
+| Error | Fix |
+|-------|-----|
+| "operation-not-allowed" | Enable Email/Password in Firebase Auth |
+| "api-key-not-valid" | Check .env.local keys are correct |
+| "network-request-failed" | Check internet connection |
+| "permission-denied" | Update Firestore Rules (Step 5) |
+| White screen on dashboard | You're not logged in, go to /login first |
+| .env.local not working | Restart dev server after editing .env.local |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## ─── DEPLOY TO NETLIFY ───────────────────────────────
 
-## Deploy on Vercel
+```bash
+# 1. Push to GitHub
+git add .
+git commit -m "Phase 1 complete"
+git push
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# 2. Netlify Dashboard
+#    → New Site → Import from GitHub → Select repo
+#    → Build command: npm run build
+#    → Publish dir: .next
+#    → Add all NEXT_PUBLIC_FIREBASE_ env vars
+#    → Deploy ✅
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## ─── FILE STRUCTURE ─────────────────────────────────
+
+```
+app/
+├── page.tsx                    Landing page
+├── layout.tsx                  Root layout
+├── (auth)/
+│   ├── login/page.tsx          Login
+│   └── register/page.tsx       Register
+└── (dashboard)/
+    ├── layout.tsx              Auth guard + sidebar
+    ├── dashboard/page.tsx      Dashboard home
+    ├── patients/page.tsx       Patients list
+    ├── patients/[id]/page.tsx  Patient detail
+    ├── claims/page.tsx         Claims list
+    ├── claims/new/page.tsx     New claim
+    ├── claims/[id]/page.tsx    Claim detail
+    └── providers/page.tsx      Providers
+
+components/layout/Sidebar.tsx   Navigation
+context/AuthContext.tsx         Firebase Auth
+lib/
+├── firebase.ts                 Firebase init
+├── theme.ts                    Shared CSS
+└── firestore/
+    ├── patients.ts             CRUD helpers
+    ├── claims.ts               CRUD helpers
+    └── providers.ts            CRUD helpers
+```
+
+---
+
+Built with ❤️ by Incart Software

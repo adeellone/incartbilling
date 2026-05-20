@@ -1,0 +1,53 @@
+import { db } from "@/lib/firebase";
+import {
+  collection, addDoc, updateDoc, deleteDoc,
+  doc, getDocs, getDoc, query, orderBy, serverTimestamp, Timestamp,
+} from "firebase/firestore";
+
+export type ClaimStatus = "draft" | "submitted" | "paid" | "denied" | "pending";
+
+export interface ClaimCode { code: string; description: string; units: number; charge: number; }
+
+export interface Claim {
+  id?: string;
+  patientId: string;
+  patientName: string;
+  providerId: string;
+  providerName: string;
+  serviceDate: string;
+  status: ClaimStatus;
+  diagnosisCodes: string[];
+  procedureCodes: ClaimCode[];
+  totalCharge: number;
+  paidAmount: number;
+  notes: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+const COL = "claims";
+
+export async function getClaims(): Promise<Claim[]> {
+  const q = query(collection(db, COL), orderBy("createdAt", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Claim));
+}
+
+export async function getClaim(id: string): Promise<Claim | null> {
+  const snap = await getDoc(doc(db, COL, id));
+  return snap.exists() ? ({ id: snap.id, ...snap.data() } as Claim) : null;
+}
+
+export async function addClaim(data: Omit<Claim, "id" | "createdAt" | "updatedAt">) {
+  return addDoc(collection(db, COL), {
+    ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  });
+}
+
+export async function updateClaim(id: string, data: Partial<Claim>) {
+  return updateDoc(doc(db, COL, id), { ...data, updatedAt: serverTimestamp() });
+}
+
+export async function deleteClaim(id: string) {
+  return deleteDoc(doc(db, COL, id));
+}
