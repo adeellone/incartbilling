@@ -7,7 +7,7 @@ import {
   deleteProvider,
   Provider
 } from "@/lib/firestore/providers";
-
+const { companyId } = useAuth();
 const SPECIALTIES = [
   "General Practice","Internal Medicine","Family Medicine","Cardiology",
   "Orthopedics","Radiology","Mental Health","Dermatology",

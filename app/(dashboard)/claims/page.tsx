@@ -7,7 +7,7 @@ const STATUS_BADGE: Record<string, string> = {
   paid: "badge-green", submitted: "badge-blue",
   denied: "badge-red", draft: "badge-gray", pending: "badge-yellow",
 };
-
+const { companyId } = useAuth();
 const STATUSES: (ClaimStatus | "all")[] = ["all", "draft", "submitted", "pending", "paid", "denied"];
 
 export default function ClaimsPage() {

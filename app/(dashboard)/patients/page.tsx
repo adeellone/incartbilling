@@ -7,7 +7,7 @@ import {
   deletePatient,
   Patient
 } from "@/lib/firestore/patients";
-
+const { companyId } = useAuth();
 const EMPTY_FORM = {
   firstName: "", lastName: "", dob: "", gender: "Male", phone: "", email: "", address: "",
   insurance: { planName: "", memberId: "", groupNumber: "", payer: "" },
