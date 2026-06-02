@@ -13,17 +13,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading) return;
     if (!user) { router.push("/login"); return; }
-
-    // Role-based redirect on first login
-    if (profile?.role === "superadmin" && pathname === "/dashboard") {
-      router.push("/admin"); return;
-    }
-    if (profile?.role === "provider" && pathname === "/dashboard") {
-      router.push("/provider-portal"); return;
+    // Role-based redirect only on exact /dashboard
+    if (profile && pathname === "/dashboard") {
+      if (profile.role === "superadmin")  { router.push("/admin"); return; }
+      if (profile.role === "provider")    { router.push("/provider-portal"); return; }
     }
   }, [user, profile, loading, router, pathname]);
 
-  if (loading) return (
+  if (loading || !user) return (
     <>
       <style>{THEME}</style>
       <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"var(--navy)" }}>
@@ -31,13 +28,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <div style={{ fontFamily:"Sora,sans-serif", fontSize:22, fontWeight:800, background:"linear-gradient(135deg,#fff,#00D4FF)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", marginBottom:10 }}>
             IncartBilling
           </div>
-          <div style={{ color:"var(--muted)", fontSize:13 }}>Loading your dashboard...</div>
+          <div style={{ color:"var(--muted)", fontSize:13 }}>Loading...</div>
         </div>
       </div>
     </>
   );
-
-  if (!user) return null;
 
   return (
     <>

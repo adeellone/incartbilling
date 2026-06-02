@@ -3,67 +3,53 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isAuth() { return request.auth != null; }
-    function userProfile() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-    function hasRole(role) { return isAuth() && userProfile().role == role; }
-    function isSuperAdmin() { return hasRole('superadmin'); }
-    function isCompanyAdmin() { return hasRole('company_admin'); }
-    function isBillingStaff() { return hasRole('billing_staff'); }
-    function isProvider() { return hasRole('provider'); }
+    function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function role() { return userDoc().role; }
+    function companyId() { return userDoc().companyId; }
+    function isSuperAdmin() { return isAuth() && role() == 'superadmin'; }
+    function isCompanyAdmin() { return isAuth() && role() == 'company_admin'; }
+    function isBillingStaff() { return isAuth() && role() == 'billing_staff'; }
     function canWrite() { return isAuth() && (isSuperAdmin() || isCompanyAdmin() || isBillingStaff()); }
-    function sameCompany(companyId) { return isAuth() && userProfile().companyId == companyId; }
+    function sameCompany(cid) { return isAuth() && companyId() == cid; }
 
-    match /users/{userId} {
-      allow read:  if isAuth() && (request.auth.uid == userId || isSuperAdmin() || sameCompany(resource.data.companyId));
-      allow write: if isAuth() && (request.auth.uid == userId || isSuperAdmin() || isCompanyAdmin());
+    match /users/{uid} {
+      allow read: if isAuth() && (request.auth.uid == uid || isSuperAdmin() || sameCompany(resource.data.companyId));
+      allow write: if isAuth() && (request.auth.uid == uid || isSuperAdmin() || isCompanyAdmin());
     }
-
-    match /companies/{companyId} {
-      allow read:  if isAuth() && (isSuperAdmin() || sameCompany(companyId));
-      allow write: if isAuth() && (isSuperAdmin() || (isCompanyAdmin() && sameCompany(companyId)));
+    match /companies/{cid} {
+      allow read: if isAuth() && (isSuperAdmin() || sameCompany(cid));
+      allow write: if isAuth() && (isSuperAdmin() || (isCompanyAdmin() && sameCompany(cid)));
     }
-
     match /patients/{id} {
-      allow read:  if isAuth() && (isSuperAdmin() || sameCompany(resource.data.companyId));
+      allow read: if isAuth() && (isSuperAdmin() || sameCompany(resource.data.companyId));
       allow write: if canWrite();
     }
-
     match /claims/{id} {
-      allow read:  if isAuth();
+      allow read: if isAuth();
       allow write: if canWrite();
     }
-
     match /providers/{id} {
-      allow read:  if isAuth() && (isSuperAdmin() || sameCompany(resource.data.companyId));
+      allow read: if isAuth() && (isSuperAdmin() || sameCompany(resource.data.companyId));
       allow write: if canWrite();
     }
-
     match /payments/{id} {
-      allow read:  if isAuth();
+      allow read: if isAuth();
       allow write: if canWrite();
     }
-
     match /denials/{id} {
-      allow read:  if isAuth();
+      allow read: if isAuth();
       allow write: if canWrite();
     }
-
-    // Credentialing — billing staff and above
     match /credentialing/{id} {
-      allow read:  if isAuth() && (isSuperAdmin() || sameCompany(resource.data.companyId));
+      allow read: if isAuth() && (isSuperAdmin() || sameCompany(resource.data.companyId));
       allow write: if canWrite();
     }
-
-    // Documents — billing staff and above
     match /documents/{id} {
-      allow read:  if isAuth() && (isSuperAdmin() || sameCompany(resource.data.companyId));
+      allow read: if isAuth() && (isSuperAdmin() || sameCompany(resource.data.companyId));
       allow write: if canWrite();
     }
-
-    // Demo requests — public write, super admin read
     match /demo_requests/{id} {
-      allow read:  if isSuperAdmin();
+      allow read: if isSuperAdmin();
       allow write: if true;
     }
   }

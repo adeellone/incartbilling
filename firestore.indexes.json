@@ -1,15 +1,15 @@
 {
   "indexes": [
-    { "collectionGroup": "patients",      "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
-    { "collectionGroup": "claims",        "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
-    { "collectionGroup": "providers",     "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
-    { "collectionGroup": "payments",      "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "postedAt",  "order": "DESCENDING" }] },
-    { "collectionGroup": "denials",       "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
-    { "collectionGroup": "credentialing", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] },
-    { "collectionGroup": "credentialing", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "providerId","order": "ASCENDING" }] },
-    { "collectionGroup": "documents",     "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "uploadedAt","order": "DESCENDING" }] },
-    { "collectionGroup": "documents",     "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "providerId","order": "ASCENDING" }, { "fieldPath": "uploadedAt","order": "DESCENDING" }] },
-    { "collectionGroup": "users",         "queryScope": "COLLECTION", "fields": [{ "fieldPath": "companyId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" }] }
+    {"collectionGroup":"patients","queryScope":"COLLECTION","fields":[{"fieldPath":"companyId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"claims","queryScope":"COLLECTION","fields":[{"fieldPath":"companyId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"providers","queryScope":"COLLECTION","fields":[{"fieldPath":"companyId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"payments","queryScope":"COLLECTION","fields":[{"fieldPath":"companyId","order":"ASCENDING"},{"fieldPath":"postedAt","order":"DESCENDING"}]},
+    {"collectionGroup":"denials","queryScope":"COLLECTION","fields":[{"fieldPath":"companyId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"credentialing","queryScope":"COLLECTION","fields":[{"fieldPath":"companyId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"credentialing","queryScope":"COLLECTION","fields":[{"fieldPath":"providerId","order":"ASCENDING"}]},
+    {"collectionGroup":"documents","queryScope":"COLLECTION","fields":[{"fieldPath":"companyId","order":"ASCENDING"},{"fieldPath":"uploadedAt","order":"DESCENDING"}]},
+    {"collectionGroup":"documents","queryScope":"COLLECTION","fields":[{"fieldPath":"companyId","order":"ASCENDING"},{"fieldPath":"providerId","order":"ASCENDING"},{"fieldPath":"uploadedAt","order":"DESCENDING"}]},
+    {"collectionGroup":"users","queryScope":"COLLECTION","fields":[{"fieldPath":"companyId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]}
   ],
-  "fieldOverrides": []
+  "fieldOverrides":[]
 }

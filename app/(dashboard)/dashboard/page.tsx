@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useReady } from "@/hooks/useReady";
 import { getClaims, Claim } from "@/lib/firestore/claims";
 import { getPatients } from "@/lib/firestore/patients";
 import { getProviders } from "@/lib/firestore/providers";
@@ -8,16 +9,19 @@ import { getProviders } from "@/lib/firestore/providers";
 const SB:Record<string,string>={paid:"badge-green",submitted:"badge-blue",denied:"badge-red",draft:"badge-gray",pending:"badge-yellow"};
 
 export default function DashboardPage() {
-  const { user, companyId } = useAuth();
+  const { user } = useAuth();
+  const { ready, queryCompanyId } = useReady();
   const [claims,setClaims]=useState<Claim[]>([]);
   const [pc,setPc]=useState(0);
   const [prc,setPrc]=useState(0);
   const [loading,setLoading]=useState(true);
 
   useEffect(()=>{
-    Promise.all([getClaims(companyId||undefined),getPatients(companyId||undefined),getProviders(companyId||undefined)])
-    .then(([c,p,pr])=>{setClaims(c);setPc(p.length);setPrc(pr.length);setLoading(false);});
-  },[companyId]);
+    if(!ready) return;
+    setLoading(true);
+    Promise.all([getClaims(queryCompanyId),getPatients(queryCompanyId),getProviders(queryCompanyId)])
+    .then(([c,p,pr])=>{ setClaims(c); setPc(p.length); setPrc(pr.length); setLoading(false); });
+  },[ready,queryCompanyId]);
 
   const totalCharge=claims.reduce((s,c)=>s+(c.totalCharge||0),0);
   const totalPaid=claims.reduce((s,c)=>s+(c.paidAmount||0),0);
@@ -26,7 +30,9 @@ export default function DashboardPage() {
   const fmt=(n:number)=>"$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
   const greet=()=>{const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":"Good evening";};
 
-  return (
+  if(!ready) return <div className="dash-content" style={{textAlign:"center",paddingTop:80,color:"var(--muted)"}}>Loading...</div>;
+
+  return(
     <div className="dash-content">
       <div style={{marginBottom:32}}>
         <h1 className="sora" style={{fontSize:26,fontWeight:800,marginBottom:4}}>{greet()}, {user?.displayName?.split(" ")[0]||"there"} 👋</h1>
@@ -54,17 +60,15 @@ export default function DashboardPage() {
           :claims.length===0?(<div className="empty"><div className="empty-icon">📋</div><div className="empty-title">No claims yet</div><a href="/claims/new" className="btn btn-blue btn-sm">New Claim</a></div>):(
             <table className="tbl">
               <thead><tr><th>Patient</th><th>Provider</th><th>Date</th><th>Charge</th><th>Status</th></tr></thead>
-              <tbody>
-                {claims.slice(0,8).map(c=>(
-                  <tr key={c.id}>
-                    <td><a href={`/claims/${c.id}`} className="tbl-link">{c.patientName}</a></td>
-                    <td style={{color:"var(--muted)",fontSize:13}}>{c.providerName}</td>
-                    <td style={{color:"var(--muted)",fontSize:13}}>{c.serviceDate}</td>
-                    <td style={{fontWeight:600}}>${(c.totalCharge||0).toFixed(2)}</td>
-                    <td><span className={`badge ${SB[c.status]||"badge-gray"}`}>{c.status}</span></td>
-                  </tr>
-                ))}
-              </tbody>
+              <tbody>{claims.slice(0,8).map(c=>(
+                <tr key={c.id}>
+                  <td><a href={`/claims/${c.id}`} className="tbl-link">{c.patientName}</a></td>
+                  <td style={{color:"var(--muted)",fontSize:13}}>{c.providerName}</td>
+                  <td style={{color:"var(--muted)",fontSize:13}}>{c.serviceDate}</td>
+                  <td style={{fontWeight:600}}>${(c.totalCharge||0).toFixed(2)}</td>
+                  <td><span className={`badge ${SB[c.status]||"badge-gray"}`}>{c.status}</span></td>
+                </tr>
+              ))}</tbody>
             </table>
           )}
         </div>

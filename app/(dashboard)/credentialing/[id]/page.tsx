@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { getCredentialing, updateCredentialing, Credentialing, CredentialingStatus, getExpiryStatus, daysUntilExpiry, PayerEnrollment } from "@/lib/firestore/credentialing";
 import { getDocuments, ProviderDocument } from "@/lib/firestore/documents";
 import { useAuth } from "@/context/AuthContext";
+import { useReady } from "@/hooks/useReady";
 
 const STATUS_BADGE: Record<CredentialingStatus, string> = {
   pending:"badge-gray", in_progress:"badge-yellow",
@@ -20,7 +21,7 @@ const PAYERS = ["Medicare","Medicaid","Blue Cross Blue Shield","Aetna","Cigna","
 export default function CredentialingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router  = useRouter();
-  const { companyId } = useAuth();
+  const { ready, queryCompanyId } = useReady();
   const [cred, setCred]   = useState<Credentialing | null>(null);
   const [docs, setDocs]   = useState<ProviderDocument[]>([]);
   const [saving, setSaving] = useState(false);
@@ -33,7 +34,7 @@ export default function CredentialingDetailPage() {
     if (!id) return;
     const [c, d] = await Promise.all([
       getCredentialing(id),
-      getDocuments(companyId||undefined, undefined),
+      getDocuments(queryCompanyId, undefined),
     ]);
     setCred(c);
     setForm(c || {});

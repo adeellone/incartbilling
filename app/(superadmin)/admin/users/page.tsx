@@ -3,70 +3,42 @@ import { useEffect, useState } from "react";
 import { getAllUsers, updateUserProfile, AppUser, UserRole } from "@/lib/firestore/users";
 import { getCompanies, Company } from "@/lib/firestore/companies";
 
-const ROLE_BADGE: Record<UserRole, string> = {
-  superadmin:"badge-cyan", company_admin:"badge-blue",
-  billing_staff:"badge-gray", provider:"badge-green",
-};
+const RB:Record<UserRole,string>={superadmin:"badge-cyan",company_admin:"badge-blue",billing_staff:"badge-gray",provider:"badge-green"};
 
 export default function AdminUsersPage() {
-  const [users, setUsers]         = useState<AppUser[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [search, setSearch]       = useState("");
-  const [loading, setLoading]     = useState(true);
+  const [users,setUsers]=useState<AppUser[]>([]);
+  const [companies,setCompanies]=useState<Company[]>([]);
+  const [search,setSearch]=useState("");
+  const [loading,setLoading]=useState(true);
 
-  const load = async () => {
-    const [u, c] = await Promise.all([getAllUsers(), getCompanies()]);
-    setUsers(u); setCompanies(c); setLoading(false);
-  };
+  const load=async()=>{ const [u,c]=await Promise.all([getAllUsers(),getCompanies()]); setUsers(u); setCompanies(c); setLoading(false); };
+  useEffect(()=>{ load(); },[]);
 
-  useEffect(() => { load(); }, []);
+  const companyName=(id:string)=>companies.find(c=>c.id===id)?.name||id;
+  const filtered=users.filter(u=>u.displayName?.toLowerCase().includes(search.toLowerCase())||u.email?.toLowerCase().includes(search.toLowerCase()));
 
-  const companyName = (id: string) => companies.find(c => c.id === id)?.name || id;
-  const filtered = users.filter(u =>
-    u.displayName?.toLowerCase().includes(search.toLowerCase()) ||
-    u.email?.toLowerCase().includes(search.toLowerCase())
-  );
-
-  return (
+  return(
     <div className="dash-content">
-      <div style={{ marginBottom:28 }}>
-        <h1 className="sora" style={{ fontSize:24, fontWeight:800 }}>All Users</h1>
-        <p style={{ color:"var(--muted)", fontSize:13, marginTop:4 }}>{users.length} users across all companies</p>
+      <div style={{marginBottom:28}}>
+        <h1 className="sora" style={{fontSize:24,fontWeight:800}}>All Users</h1>
+        <p style={{color:"var(--muted)",fontSize:13,marginTop:4}}>{users.length} users across all companies</p>
       </div>
-
-      <div style={{ marginBottom:20 }}>
-        <div className="search-bar">
-          <span style={{ color:"var(--muted)" }}>🔍</span>
-          <input placeholder="Search by name or email..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-      </div>
-
+      <div style={{marginBottom:20}}><div className="search-bar"><span style={{color:"var(--muted)"}}>🔍</span><input placeholder="Search name or email..." value={search} onChange={e=>setSearch(e.target.value)}/></div></div>
       <div className="data-card">
-        <div className="data-card-header">
-          <span className="data-card-title sora">Users ({filtered.length})</span>
-        </div>
-        {loading ? (
-          <div style={{ padding:32, textAlign:"center", color:"var(--muted)" }}>Loading...</div>
-        ) : (
+        <div className="data-card-header"><span className="data-card-title sora">Users ({filtered.length})</span></div>
+        {loading?(<div style={{padding:32,textAlign:"center",color:"var(--muted)"}}>Loading...</div>):(
           <table className="tbl">
             <thead><tr><th>Name</th><th>Email</th><th>Company</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>
-              {filtered.map(u => (
-                <tr key={u.id}>
-                  <td style={{ fontWeight:600 }}>{u.displayName}</td>
-                  <td style={{ color:"var(--muted)", fontSize:13 }}>{u.email}</td>
-                  <td style={{ fontSize:13 }}>{companyName(u.companyId)}</td>
-                  <td><span className={`badge ${ROLE_BADGE[u.role]}`}>{u.role.replace("_"," ")}</span></td>
-                  <td><span className={`badge ${u.active ? "badge-green":"badge-red"}`}>{u.active ? "Active":"Inactive"}</span></td>
-                  <td>
-                    <button className={`btn btn-sm ${u.active ? "btn-danger":"btn-ghost"}`}
-                      onClick={() => { updateUserProfile(u.uid, { active: !u.active }); load(); }}>
-                      {u.active ? "Deactivate":"Activate"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+            <tbody>{filtered.map(u=>(
+              <tr key={u.id}>
+                <td style={{fontWeight:600}}>{u.displayName}</td>
+                <td style={{color:"var(--muted)",fontSize:13}}>{u.email}</td>
+                <td style={{fontSize:13}}>{companyName(u.companyId)}</td>
+                <td><span className={`badge ${RB[u.role]}`}>{u.role.replace("_"," ")}</span></td>
+                <td><span className={`badge ${u.active?"badge-green":"badge-red"}`}>{u.active?"Active":"Inactive"}</span></td>
+                <td><button className={`btn btn-sm ${u.active?"btn-danger":"btn-ghost"}`} onClick={()=>{updateUserProfile(u.uid,{active:!u.active});load();}}>{u.active?"Deactivate":"Activate"}</button></td>
+              </tr>
+            ))}</tbody>
           </table>
         )}
       </div>
