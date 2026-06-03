@@ -6,11 +6,15 @@ export const metadata: Metadata = {
   description: "All-in-one medical billing and revenue cycle management platform.",
 };
 
+// This stays a SERVER component — metadata works here
+// AuthProvider is imported but wraps children only
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

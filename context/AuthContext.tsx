@@ -1,6 +1,12 @@
 "use client";
+// This file MUST stay separate from layout.tsx
+// because it uses "use client" which blocks metadata export
+
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from "firebase/auth";
+import {
+  User, onAuthStateChanged, signInWithEmailAndPassword,
+  createUserWithEmailAndPassword, signOut, updateProfile,
+} from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { getUserProfile, createUserProfile, AppUser, UserRole } from "@/lib/firestore/users";
 import { getPermissions, Permission } from "@/lib/permissions";
@@ -72,7 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await signOut(auth);
-    setUser(null); setProfile(null);
+    setUser(null);
+    setProfile(null);
   };
 
   const role        = profile?.role ?? null;
@@ -83,9 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{
       user, profile, role, companyId, permissions, loading,
       login, register, logout, refreshProfile,
-      isSuperAdmin:  role === "superadmin",
+      isSuperAdmin:   role === "superadmin",
       isCompanyAdmin: role === "company_admin",
-      isProvider:    role === "provider",
+      isProvider:     role === "provider",
     }}>
       {children}
     </AuthContext.Provider>
