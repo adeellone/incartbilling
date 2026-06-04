@@ -394,7 +394,7 @@ export default function Home() {
           <li><a href="#specialties">Specialties</a></li>
           <li><a href="#about">Why Us</a></li>
         </ul>
-        /*<a href="/login" className="nav-btn">Get Started →</a>*/
+        <a href="/login" className="nav-btn">Get Started →</a>
       </nav>
 
       {/* HERO */}
