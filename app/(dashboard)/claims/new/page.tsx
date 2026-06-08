@@ -1,14 +1,16 @@
 "use client";
-import { useEffect, useState } from "react";
+export const dynamic = 'force-dynamic';
+
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useReady } from "@/hooks/useReady";
 import { addClaim, ClaimCode } from "@/lib/firestore/claims";
 import { getPatients, Patient } from "@/lib/firestore/patients";
 import { getProviders, Provider } from "@/lib/firestore/providers";
-export const dynamic = 'force-dynamic';
+
 const EC:ClaimCode={code:"",description:"",units:1,charge:0};
 
-export default function NewClaimPage() {
+function NewClaimForm() {
   const router=useRouter();
   const params=useSearchParams();
   const { ready, queryCompanyId, companyId } = useReady();
@@ -137,5 +139,13 @@ export default function NewClaimPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function NewClaimPage() {
+  return (
+    <Suspense fallback={<div className="dash-content" style={{textAlign:"center",paddingTop:80,color:"var(--muted)"}}>Loading...</div>}>
+      <NewClaimForm />
+    </Suspense>
   );
 }
