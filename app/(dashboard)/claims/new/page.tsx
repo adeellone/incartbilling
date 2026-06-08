@@ -5,7 +5,7 @@ import { useReady } from "@/hooks/useReady";
 import { addClaim, ClaimCode } from "@/lib/firestore/claims";
 import { getPatients, Patient } from "@/lib/firestore/patients";
 import { getProviders, Provider } from "@/lib/firestore/providers";
-
+export const dynamic = 'force-dynamic';
 const EC:ClaimCode={code:"",description:"",units:1,charge:0};
 
 export default function NewClaimPage() {
