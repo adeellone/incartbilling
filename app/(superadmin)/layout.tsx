@@ -16,7 +16,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
   if (loading) return (
     <>
       <style>{THEME}</style>
-      <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"var(--navy)", color:"var(--muted)" }}>Loading...</div>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--navy)", color: "var(--muted)" }}>Loading...</div>
     </>
   );
 

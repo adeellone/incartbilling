@@ -13,22 +13,21 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading) return;
     if (!user) { router.push("/login"); return; }
-    // Role-based redirect only on exact /dashboard
     if (profile && pathname === "/dashboard") {
-      if (profile.role === "superadmin")  { router.push("/admin"); return; }
-      if (profile.role === "provider")    { router.push("/provider-portal"); return; }
+      if (profile.role === "superadmin") { router.push("/admin"); return; }
+      if (profile.role === "provider")   { router.push("/provider-portal"); return; }
     }
   }, [user, profile, loading, router, pathname]);
 
   if (loading || !user) return (
     <>
       <style>{THEME}</style>
-      <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"var(--navy)" }}>
-        <div style={{ textAlign:"center" }}>
-          <div style={{ fontFamily:"Sora,sans-serif", fontSize:22, fontWeight:800, background:"linear-gradient(135deg,#fff,#00D4FF)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", marginBottom:10 }}>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--navy)" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: "Sora,sans-serif", fontSize: 22, fontWeight: 800, background: "linear-gradient(135deg,#fff,#00D4FF)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 10 }}>
             IncartBilling
           </div>
-          <div style={{ color:"var(--muted)", fontSize:13 }}>Loading...</div>
+          <div style={{ color: "var(--muted)", fontSize: 13 }}>Loading...</div>
         </div>
       </div>
     </>
@@ -37,6 +36,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <style>{THEME}</style>
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.3); }
+        }
+      `}</style>
       <div className="dash-wrap">
         <Sidebar />
         <main className="dash-main">{children}</main>
