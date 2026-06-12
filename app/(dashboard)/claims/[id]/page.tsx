@@ -16,7 +16,7 @@ export default function ClaimDetailPage() {
   const router  = useRouter();
   const { ready, queryCompanyId } = useReady();
 
-  const { data: claims } = useCollection<Claim>("claims", { companyId: queryCompanyId });
+  const { data: claims } = useCollection<Claim>("claims", { companyId: queryCompanyId, enabled: ready });
   const claim = claims.find(c => c.id === id) ?? null;
 
   const [updatingStatus, setUpdatingStatus] = useState(false);

@@ -23,8 +23,8 @@ export default function DocumentsPage() {
   const [file, setFile] = useState<File | null>(null);
 
   // ── Real-time listeners ──────────────────────────────────────────
-  const { data: docs,      loading } = useCollection<ProviderDocument>("documents", { companyId: queryCompanyId, orderByField: "uploadedAt" });
-  const { data: providers            } = useCollection<Provider>("providers",        { companyId: queryCompanyId });
+  const { data: docs,      loading } = useCollection<ProviderDocument>("documents", { companyId: queryCompanyId, enabled: ready, orderByField: "uploadedAt" });
+  const { data: providers            } = useCollection<Provider>("providers",        { companyId: queryCompanyId, enabled: ready });
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));

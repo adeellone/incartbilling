@@ -39,8 +39,8 @@ export default function CredentialingPage() {
   });
 
   // ── Real-time listeners ──────────────────────────────────────────
-  const { data: creds,     loading } = useCollection<Credentialing>("credentialing", { companyId: queryCompanyId });
-  const { data: providers            } = useCollection<Provider>("providers",      { companyId: queryCompanyId });
+  const { data: creds,     loading } = useCollection<Credentialing>("credentialing", { companyId: queryCompanyId, enabled: ready });
+  const { data: providers            } = useCollection<Provider>("providers",      { companyId: queryCompanyId, enabled: ready });
 
   const alerts = creds.filter(c =>
     [c.licenseExpiry, c.deaExpiry, c.malpracticeExpiry, c.boardExpiry]

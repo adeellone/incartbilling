@@ -29,7 +29,7 @@ export default function TeamPage() {
   const { ready, companyId } = useReady();
 
   // Real-time listener
-  const { data: users, loading } = useCollection<AppUser>("users", { companyId });
+  const { data: users, loading } = useCollection<AppUser>("users", { companyId, enabled: ready });
 
   const [showForm,    setShowForm]    = useState(false);
   const [saving,      setSaving]      = useState(false);

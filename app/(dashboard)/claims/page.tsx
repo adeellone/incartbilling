@@ -28,6 +28,7 @@ export default function ClaimsPage() {
   // ── Real-time listener ───────────────────────────────────────────
   const { data: claims, loading } = useCollection<Claim>("claims", {
     companyId: queryCompanyId,
+    enabled: ready,
   });
 
   // ── Derived / filtered ───────────────────────────────────────────

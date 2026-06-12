@@ -5,17 +5,15 @@ import {
   query,
   where,
   onSnapshot,
-  orderBy,
-  QueryConstraint,
   DocumentData,
   Query,
+  QueryConstraint,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 interface UseCollectionOptions {
   companyId?: string;
-  orderByField?: string;
-  orderByDirection?: "asc" | "desc";
+  enabled?: boolean;
   additionalConstraints?: QueryConstraint[];
 }
 
@@ -25,105 +23,98 @@ interface UseCollectionResult<T> {
   error: string | null;
 }
 
-/**
- * Real-time Firestore collection hook using onSnapshot.
- * Automatically filters by companyId when provided.
- * Cleans up the listener on unmount.
- */
 export function useCollection<T extends DocumentData>(
   collectionName: string,
   options: UseCollectionOptions = {}
 ): UseCollectionResult<T> {
-  const {
-    companyId,
-    orderByField = "createdAt",
-    orderByDirection = "desc",
-    additionalConstraints = [],
-  } = options;
+  const { companyId, enabled = true, additionalConstraints = [] } = options;
 
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Track the previous companyId to avoid re-subscribing unnecessarily
-  const prevCompanyId = useRef<string | undefined>(undefined);
+  // Use ref to always have latest unsub
   const unsubRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    // Don't re-subscribe if companyId hasn't changed
-    if (prevCompanyId.current === companyId && unsubRef.current) return;
-    prevCompanyId.current = companyId;
-
-    // Clean up previous listener
+    // Cleanup previous listener
     if (unsubRef.current) {
       unsubRef.current();
       unsubRef.current = null;
     }
 
+    // Don't subscribe until auth is ready
+    if (!enabled) {
+      setData([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
+    // Build constraints
     const constraints: QueryConstraint[] = [];
-
     if (companyId) {
       constraints.push(where("companyId", "==", companyId));
     }
-
     constraints.push(...additionalConstraints);
 
-    // Try with orderBy first; fall back gracefully if index is missing
-    let q: Query<DocumentData>;
-    try {
-      q = query(
-        collection(db, collectionName),
-        ...constraints,
-        orderBy(orderByField, orderByDirection)
-      );
-    } catch {
-      q = query(collection(db, collectionName), ...constraints);
-    }
+    // Simple query — NO orderBy to avoid composite index requirement
+    const q: Query<DocumentData> = query(
+      collection(db, collectionName),
+      ...constraints
+    );
 
     const unsub = onSnapshot(
       q,
+      { includeMetadataChanges: false },
       (snapshot) => {
         const results = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         })) as T[];
 
-        // Client-side sort as fallback when orderBy index isn't available
-        results.sort((a: T, b: T) => {
-          const aTime = (a as { createdAt?: { seconds?: number } }).createdAt?.seconds ?? 0;
-          const bTime = (b as { createdAt?: { seconds?: number } }).createdAt?.seconds ?? 0;
-          return orderByDirection === "desc" ? bTime - aTime : aTime - bTime;
+        // Sort client-side by createdAt descending
+        results.sort((a, b) => {
+          const aT =
+            (a as { createdAt?: { seconds?: number } }).createdAt?.seconds ?? 0;
+          const bT =
+            (b as { createdAt?: { seconds?: number } }).createdAt?.seconds ?? 0;
+          return bT - aT;
         });
 
         setData(results);
         setLoading(false);
+        setError(null);
       },
       (err) => {
-        console.error(`useCollection error [${collectionName}]:`, err);
+        console.error(
+          `[useCollection] ${collectionName} error:`,
+          err.code,
+          err.message
+        );
         setError(err.message);
         setLoading(false);
+        setData([]);
       }
     );
 
     unsubRef.current = unsub;
 
     return () => {
-      unsub();
-      unsubRef.current = null;
+      if (unsubRef.current) {
+        unsubRef.current();
+        unsubRef.current = null;
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [collectionName, companyId]);
+  // enabled and companyId MUST be in deps so hook re-runs when auth loads
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectionName, companyId, enabled]);
 
   return { data, loading, error };
 }
 
-/**
- * Real-time hook for a specific document field that acts as a counter/aggregate.
- * Re-derives stats from the live collection data.
- */
 export function useLiveStats<T extends DocumentData>(
   data: T[],
   statsFn: (items: T[]) => Record<string, number | string>

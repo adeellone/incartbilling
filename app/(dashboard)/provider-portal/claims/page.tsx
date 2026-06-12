@@ -17,6 +17,7 @@ export default function ProviderClaimsPage() {
 
   const { data: allClaims, loading } = useCollection<Claim>("claims", {
     companyId: profile?.companyId ?? undefined,
+    enabled: ready,
   });
 
   const claims = allClaims.filter(c =>

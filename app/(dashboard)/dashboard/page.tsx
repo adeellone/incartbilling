@@ -21,14 +21,14 @@ export default function DashboardPage() {
   // ── Real-time listeners ──────────────────────────────────────────
   const { data: claims, loading: claimsLoading } = useCollection<Claim>(
     "claims",
-    { companyId: queryCompanyId }
+    { companyId: queryCompanyId, enabled: ready }
   );
   const { data: patients, loading: patientsLoading } = useCollection<Patient>(
     "patients",
-    { companyId: queryCompanyId }
+    { companyId: queryCompanyId, enabled: ready }
   );
   const { data: providers, loading: providersLoading } =
-    useCollection<Provider>("providers", { companyId: queryCompanyId });
+    useCollection<Provider>("providers", { companyId: queryCompanyId, enabled: ready });
 
   const loading = claimsLoading || patientsLoading || providersLoading;
 

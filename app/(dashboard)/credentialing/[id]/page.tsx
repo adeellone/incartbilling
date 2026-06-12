@@ -24,8 +24,8 @@ export default function CredentialingDetailPage() {
   const router  = useRouter();
   const { ready, queryCompanyId } = useReady();
 
-  const { data: allCreds } = useCollection<Credentialing>("credentialing", { companyId: queryCompanyId });
-  const { data: allDocs  } = useCollection<ProviderDocument>("documents",  { companyId: queryCompanyId });
+  const { data: allCreds } = useCollection<Credentialing>("credentialing", { companyId: queryCompanyId, enabled: ready });
+  const { data: allDocs  } = useCollection<ProviderDocument>("documents",  { companyId: queryCompanyId, enabled: ready });
 
   const cred = allCreds.find(c => c.id === id) ?? null;
   const docs  = allDocs.filter(d => d.providerId === cred?.providerId);

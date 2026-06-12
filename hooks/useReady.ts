@@ -1,25 +1,18 @@
 "use client";
-import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 
 /**
- * Returns { ready, companyId, isSuperAdmin, queryCompanyId }
- * ready = true only when auth + profile are fully loaded.
- * Use this in every dashboard page before fetching or subscribing.
+ * Returns auth state synchronously — no useState delay.
+ * ready = true when auth + profile both loaded.
  */
 export function useReady() {
   const { user, profile, loading } = useAuth();
-  const [ready, setReady] = useState(false);
 
-  useEffect(() => {
-    if (!loading && user && profile) setReady(true);
-    else if (!loading && !user) setReady(false);
-  }, [loading, user, profile]);
-
+  // Synchronous — no useEffect, no state delay
+  const ready = !loading && !!user && !!profile;
   const isSuperAdmin = profile?.role === "superadmin";
 
-  // SuperAdmin queries without companyId filter (sees all data)
-  // Others query with their companyId
+  // SuperAdmin sees all data (no companyId filter)
   const queryCompanyId = isSuperAdmin
     ? undefined
     : profile?.companyId ?? undefined;

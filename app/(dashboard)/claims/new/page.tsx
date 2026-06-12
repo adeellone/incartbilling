@@ -16,8 +16,8 @@ export default function NewClaimPage() {
   const params  = useSearchParams();
   const { ready, queryCompanyId, companyId } = useReady();
 
-  const { data: patients  } = useCollection<Patient> ("patients",  { companyId: queryCompanyId });
-  const { data: providers } = useCollection<Provider>("providers", { companyId: queryCompanyId });
+  const { data: patients  } = useCollection<Patient> ("patients",  { companyId: queryCompanyId, enabled: ready });
+  const { data: providers } = useCollection<Provider>("providers", { companyId: queryCompanyId, enabled: ready });
 
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({

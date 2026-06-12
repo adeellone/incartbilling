@@ -32,6 +32,7 @@ export default function ProvidersPage() {
   // ── Real-time listener ───────────────────────────────────────────
   const { data: providers, loading } = useCollection<Provider>("providers", {
     companyId: queryCompanyId,
+    enabled: ready,
   });
 
   const set =

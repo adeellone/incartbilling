@@ -15,6 +15,7 @@ export default function ProviderPortalPage() {
 
   const { data: allClaims, loading } = useCollection<Claim>("claims", {
     companyId: profile?.companyId ?? undefined,
+    enabled: ready,
   });
 
   // Filter to this provider's claims only

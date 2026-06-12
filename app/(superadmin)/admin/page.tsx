@@ -17,10 +17,10 @@ export default function AdminPage() {
   const { ready, isSuperAdmin } = useReady();
 
   // Real-time listeners — no companyId filter for superadmin
-  const { data: companies, loading } = useCollection<Company> ("companies", {});
-  const { data: users               } = useCollection<AppUser> ("users",     {});
-  const { data: claims              } = useCollection<Claim>   ("claims",    {});
-  const { data: patients            } = useCollection<Patient> ("patients",  {});
+  const { data: companies, loading } = useCollection<Company>("companies", { enabled: true });
+  const { data: users               } = useCollection<AppUser>("users", { enabled: true });
+  const { data: claims              } = useCollection<Claim>("claims", { enabled: true });
+  const { data: patients            } = useCollection<Patient>("patients", { enabled: true });
 
   const [showForm, setShowForm] = useState(false);
   const [saving,   setSaving]   = useState(false);

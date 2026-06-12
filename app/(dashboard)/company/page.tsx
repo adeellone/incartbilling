@@ -24,10 +24,10 @@ export default function CompanyPage() {
   const [saving,   setSaving]   = useState(false);
 
   // Real-time listeners
-  const { data: users     } = useCollection<AppUser>  ("users",     { companyId });
-  const { data: providers } = useCollection<Provider> ("providers", { companyId: queryCompanyId });
-  const { data: patients  } = useCollection<Patient>  ("patients",  { companyId: queryCompanyId });
-  const { data: claims    } = useCollection<Claim>    ("claims",    { companyId: queryCompanyId });
+  const { data: users     } = useCollection<AppUser>("users", { companyId, enabled: ready });
+  const { data: providers } = useCollection<Provider> ("providers", { companyId: queryCompanyId, enabled: ready });
+  const { data: patients  } = useCollection<Patient>  ("patients",  { companyId: queryCompanyId, enabled: ready });
+  const { data: claims    } = useCollection<Claim>    ("claims",    { companyId: queryCompanyId, enabled: ready });
 
   useEffect(() => {
     if (companyId) {

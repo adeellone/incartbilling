@@ -40,13 +40,12 @@ export default function PaymentsPage() {
 
   // ── Real-time listeners ──────────────────────────────────────────
   const { data: payments, loading: paymentsLoading } =
-    useCollection<Payment>("payments", {
-      companyId: queryCompanyId,
-      orderByField: "postedAt",
+    useCollection<Payment>("payments", { companyId: queryCompanyId, enabled: ready, orderByField: "postedAt",
     });
 
   const { data: claims } = useCollection<Claim>("claims", {
     companyId: queryCompanyId,
+    enabled: ready,
   });
 
   const set =

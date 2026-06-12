@@ -20,6 +20,7 @@ export default function AdminRequestsPage() {
   // Real-time listener on demo_requests (no companyId filter)
   const { data: requests, loading } = useCollection<DemoRequest>("demo_requests", {
     orderByField: "createdAt",
+    enabled: true,
   });
 
   const updateStatus = async (id: string, status: string) => {

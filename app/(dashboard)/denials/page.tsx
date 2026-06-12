@@ -75,10 +75,12 @@ export default function DenialsPage() {
   // ── Real-time listeners ──────────────────────────────────────────
   const { data: denials, loading } = useCollection<Denial>("denials", {
     companyId: queryCompanyId,
+    enabled: ready,
   });
 
   const { data: claims } = useCollection<Claim>("claims", {
     companyId: queryCompanyId,
+    enabled: ready,
   });
 
   const set =

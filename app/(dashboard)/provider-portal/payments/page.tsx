@@ -17,9 +17,7 @@ interface Payment {
 export default function ProviderPaymentsPage() {
   const { ready, queryCompanyId } = useReady();
 
-  const { data: payments, loading } = useCollection<Payment>("payments", {
-    companyId: queryCompanyId,
-    orderByField: "postedAt",
+  const { data: payments, loading } = useCollection<Payment>("payments", { companyId: queryCompanyId, enabled: ready, orderByField: "postedAt",
   });
 
   const total = payments.reduce((s, p) => s + (p.amount || 0), 0);

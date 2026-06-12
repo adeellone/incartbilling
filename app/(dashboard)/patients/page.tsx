@@ -26,6 +26,7 @@ export default function PatientsPage() {
   // ── Real-time listener ───────────────────────────────────────────
   const { data: patients, loading } = useCollection<Patient>("patients", {
     companyId: queryCompanyId,
+    enabled: ready,
   });
 
   // ── Filtered ─────────────────────────────────────────────────────

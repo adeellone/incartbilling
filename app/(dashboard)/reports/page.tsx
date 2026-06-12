@@ -16,9 +16,9 @@ const SB: Record<string, string> = {
 export default function ReportsPage() {
   const { ready, queryCompanyId } = useReady();
 
-  const { data: claims, loading: claimsLoading } = useCollection<Claim>("claims", { companyId: queryCompanyId });
-  const { data: patients } = useCollection<Patient>("patients", { companyId: queryCompanyId });
-  const { data: providers } = useCollection<Provider>("providers", { companyId: queryCompanyId });
+  const { data: claims, loading: claimsLoading } = useCollection<Claim>("claims", { companyId: queryCompanyId, enabled: ready });
+  const { data: patients } = useCollection<Patient>("patients", { companyId: queryCompanyId, enabled: ready });
+  const { data: providers } = useCollection<Provider>("providers", { companyId: queryCompanyId, enabled: ready });
 
   const loading = claimsLoading;
 

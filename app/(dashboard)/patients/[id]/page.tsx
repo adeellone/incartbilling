@@ -17,8 +17,8 @@ export default function PatientDetailPage() {
   const { ready, queryCompanyId } = useReady();
 
   // Real-time listeners
-  const { data: patients } = useCollection<Patient>("patients", { companyId: queryCompanyId });
-  const { data: allClaims } = useCollection<Claim>("claims",   { companyId: queryCompanyId });
+  const { data: patients } = useCollection<Patient>("patients", { companyId: queryCompanyId, enabled: ready });
+  const { data: allClaims } = useCollection<Claim>("claims",   { companyId: queryCompanyId, enabled: ready });
 
   const patient = patients.find(p => p.id === id) ?? null;
   const claims  = allClaims.filter(c => c.patientId === id);

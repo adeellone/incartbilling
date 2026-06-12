@@ -13,8 +13,8 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
 
   // Real-time listeners — no companyId filter for superadmin
-  const { data: users,     loading } = useCollection<AppUser> ("users",     {});
-  const { data: companies           } = useCollection<Company> ("companies", {});
+  const { data: users,     loading } = useCollection<AppUser>("users", { enabled: true });
+  const { data: companies           } = useCollection<Company>("companies", { enabled: true });
 
   const companyName = (id: string) => companies.find(c => c.id === id)?.name || id;
 
