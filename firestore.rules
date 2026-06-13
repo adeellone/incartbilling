@@ -52,5 +52,16 @@ service cloud.firestore {
       allow read: if isSuperAdmin();
       allow write: if true;
     }
+
+    // ── Phase 4B: Notifications ──────────────────────────────────────────────
+    match /notifications/{id} {
+      // Any authenticated user in the same company can read
+      allow read: if isAuth() && (isSuperAdmin() || sameCompany(resource.data.companyId));
+      // Any authenticated staff can create notifications
+      allow create: if canWrite();
+      // Users can mark their own notifications as read; admins can do anything
+      allow update: if isAuth() && (isSuperAdmin() || sameCompany(resource.data.companyId));
+      allow delete: if isAuth() && (isSuperAdmin() || isCompanyAdmin());
+    }
   }
 }

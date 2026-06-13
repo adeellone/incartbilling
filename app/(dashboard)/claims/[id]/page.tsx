@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCollection } from "@/hooks/useCollection";
 import { useReady } from "@/hooks/useReady";
 import { updateClaim, Claim, ClaimStatus } from "@/lib/firestore/claims";
+import { notify } from "@/lib/firestore/notifications";
 
 const STATUS_BADGE: Record<string, string> = {
   paid: "badge-green", submitted: "badge-blue",
@@ -14,9 +15,12 @@ const STATUSES: ClaimStatus[] = ["draft", "submitted", "pending", "paid", "denie
 export default function ClaimDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router  = useRouter();
-  const { ready, queryCompanyId } = useReady();
+  const { ready, queryCompanyId, companyId } = useReady();
 
-  const { data: claims } = useCollection<Claim>("claims", { companyId: queryCompanyId, enabled: ready });
+  const { data: claims } = useCollection<Claim>("claims", {
+    companyId: queryCompanyId,
+    enabled: ready,
+  });
   const claim = claims.find(c => c.id === id) ?? null;
 
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -24,16 +28,24 @@ export default function ClaimDetailPage() {
   const [showPayment,    setShowPayment]    = useState(false);
 
   const handleStatus = async (status: ClaimStatus) => {
-    if (!id) return;
+    if (!id || !claim) return;
     setUpdatingStatus(true);
     await updateClaim(id, { status });
+    // 🔔 Notify on status change
+    if (companyId) {
+      await notify.claimStatusChanged(companyId, claim.patientName, status, id);
+    }
     setUpdatingStatus(false);
-    // onSnapshot fires automatically — no reload needed
   };
 
   const handlePayment = async () => {
-    if (!id) return;
-    await updateClaim(id, { paidAmount: parseFloat(paidAmount) || 0, status: "paid" });
+    if (!id || !claim) return;
+    const amount = parseFloat(paidAmount) || 0;
+    await updateClaim(id, { paidAmount: amount, status: "paid" });
+    // 🔔 Notify payment posted
+    if (companyId) {
+      await notify.paymentPosted(companyId, claim.patientName, amount, id);
+    }
     setShowPayment(false);
     setPaidAmount("");
   };
@@ -50,7 +62,6 @@ export default function ClaimDetailPage() {
 
   return (
     <div className="dash-content">
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
         <button className="btn btn-ghost btn-sm" onClick={() => router.push("/claims")}>← Back</button>
         <div style={{ flex: 1 }}>
@@ -67,10 +78,7 @@ export default function ClaimDetailPage() {
       </div>
 
       <div className="detail-grid">
-        {/* Left */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-          {/* Claim Info */}
           <div className="data-card">
             <div className="data-card-header"><span className="data-card-title sora">Claim Details</span></div>
             <div style={{ padding: 24 }}>
@@ -93,17 +101,17 @@ export default function ClaimDetailPage() {
             </div>
           </div>
 
-          {/* Diagnosis Codes */}
           <div className="data-card">
             <div className="data-card-header"><span className="data-card-title sora">Diagnosis Codes (ICD-10)</span></div>
             <div style={{ padding: 24, display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {claim.diagnosisCodes?.length ? claim.diagnosisCodes.map(dx => (
-                <span key={dx} className="badge badge-blue" style={{ fontFamily: "monospace", fontSize: 13 }}>{dx}</span>
-              )) : <span style={{ color: "var(--muted)", fontSize: 13 }}>No diagnosis codes</span>}
+              {claim.diagnosisCodes?.length
+                ? claim.diagnosisCodes.map(dx => (
+                    <span key={dx} className="badge badge-blue" style={{ fontFamily: "monospace", fontSize: 13 }}>{dx}</span>
+                  ))
+                : <span style={{ color: "var(--muted)", fontSize: 13 }}>No diagnosis codes</span>}
             </div>
           </div>
 
-          {/* Procedure Codes */}
           <div className="data-card">
             <div className="data-card-header"><span className="data-card-title sora">Procedure Codes (CPT)</span></div>
             {claim.procedureCodes?.length ? (
@@ -127,10 +135,7 @@ export default function ClaimDetailPage() {
           </div>
         </div>
 
-        {/* Right */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-          {/* Update Status */}
           <div className="data-card" style={{ padding: 24 }}>
             <div className="sora" style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Update Status</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -147,7 +152,6 @@ export default function ClaimDetailPage() {
             </div>
           </div>
 
-          {/* Post Payment */}
           <div className="data-card" style={{ padding: 24 }}>
             <div className="sora" style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Post Payment</div>
             <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>
@@ -172,7 +176,6 @@ export default function ClaimDetailPage() {
             )}
           </div>
 
-          {/* Actions */}
           <div className="data-card" style={{ padding: 24 }}>
             <div className="sora" style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Actions</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

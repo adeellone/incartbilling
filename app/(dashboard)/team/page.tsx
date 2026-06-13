@@ -4,6 +4,7 @@ import { useReady } from "@/hooks/useReady";
 import { useCollection } from "@/hooks/useCollection";
 import { updateUserProfile, createUserProfile, AppUser, UserRole } from "@/lib/firestore/users";
 import { ROLE_PERMISSIONS, Permission } from "@/lib/permissions";
+import { notify } from "@/lib/firestore/notifications";
 
 const RB: Record<UserRole, string> = {
   superadmin: "badge-cyan", company_admin: "badge-blue",
@@ -27,8 +28,6 @@ const ALL_PERMISSIONS: { key: keyof Permission; label: string }[] = [
 
 export default function TeamPage() {
   const { ready, companyId } = useReady();
-
-  // Real-time listener
   const { data: users, loading } = useCollection<AppUser>("users", { companyId, enabled: ready });
 
   const [showForm,    setShowForm]    = useState(false);
@@ -51,11 +50,17 @@ export default function TeamPage() {
       const secondaryAuth = getAuth(secondaryApp);
       const cred = await createUserWithEmailAndPassword(secondaryAuth, form.email, form.password);
       await updateProfile(cred.user, { displayName: form.name });
-      await createUserProfile(cred.user.uid, { email: form.email, displayName: form.name, role: form.role, companyId: companyId!, active: true });
+      await createUserProfile(cred.user.uid, {
+        email: form.email, displayName: form.name,
+        role: form.role, companyId: companyId!, active: true,
+      });
       await deleteApp(secondaryApp);
+      // 🔔 Notify team member added
+      if (companyId) {
+        await notify.teamMemberAdded(companyId, form.name);
+      }
       setForm({ name: "", email: "", password: "", role: "billing_staff" });
       setShowForm(false);
-      // onSnapshot fires automatically
     } catch (err: unknown) {
       setError((err as { message?: string }).message || "Failed");
     } finally { setSaving(false); }
@@ -92,7 +97,6 @@ export default function TeamPage() {
         <button className="btn btn-blue" onClick={() => setShowForm(!showForm)}>+ Invite Member</button>
       </div>
 
-      {/* Permission Editor Modal */}
       {editingUser && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div className="panel" style={{ maxWidth: 600, width: "100%", maxHeight: "80vh", overflowY: "auto" }}>
@@ -104,7 +108,9 @@ export default function TeamPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 24 }}>
               {ALL_PERMISSIONS.map(({ key, label }) => (
                 <label key={key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "rgba(255,255,255,0.04)", borderRadius: 8, cursor: "pointer" }}>
-                  <input type="checkbox" checked={!!customPerms[key]} onChange={e => setCustomPerms(p => ({ ...p, [key]: e.target.checked }))} style={{ accentColor: "var(--blue)", width: 16, height: 16 }} />
+                  <input type="checkbox" checked={!!customPerms[key]}
+                    onChange={e => setCustomPerms(p => ({ ...p, [key]: e.target.checked }))}
+                    style={{ accentColor: "var(--blue)", width: 16, height: 16 }} />
                   <span style={{ fontSize: 13 }}>{label}</span>
                 </label>
               ))}
@@ -113,7 +119,9 @@ export default function TeamPage() {
               <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>Reset to role defaults:</div>
               <div style={{ display: "flex", gap: 8 }}>
                 {(["billing_staff", "company_admin"] as UserRole[]).map(r => (
-                  <button key={r} className="btn btn-ghost btn-sm" onClick={() => setCustomPerms(ROLE_PERMISSIONS[r])}>Use {RL[r]} defaults</button>
+                  <button key={r} className="btn btn-ghost btn-sm" onClick={() => setCustomPerms(ROLE_PERMISSIONS[r])}>
+                    Use {RL[r]} defaults
+                  </button>
                 ))}
               </div>
             </div>
@@ -181,7 +189,7 @@ export default function TeamPage() {
                   <td><span className={`badge ${u.active ? "badge-green" : "badge-red"}`}>{u.active ? "Active" : "Inactive"}</span></td>
                   <td>
                     {u.customPermissions
-                      ? <span className="badge badge-blue"  style={{ fontSize: 11 }}>Custom</span>
+                      ? <span className="badge badge-blue" style={{ fontSize: 11 }}>Custom</span>
                       : <span className="badge badge-gray" style={{ fontSize: 11 }}>Default ({RL[u.role]})</span>}
                   </td>
                   <td>
