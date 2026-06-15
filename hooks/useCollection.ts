@@ -14,6 +14,8 @@ import { db } from "@/lib/firebase";
 interface UseCollectionOptions {
   companyId?: string;
   enabled?: boolean;
+  orderByField?: string;
+  orderByDirection?: "asc" | "desc";
   additionalConstraints?: QueryConstraint[];
 }
 
@@ -27,23 +29,26 @@ export function useCollection<T extends DocumentData>(
   collectionName: string,
   options: UseCollectionOptions = {}
 ): UseCollectionResult<T> {
-  const { companyId, enabled = true, additionalConstraints = [] } = options;
+  const {
+    companyId,
+    enabled = true,
+    orderByField = "createdAt",
+    orderByDirection = "desc",
+    additionalConstraints = [],
+  } = options;
 
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Use ref to always have latest unsub
   const unsubRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    // Cleanup previous listener
     if (unsubRef.current) {
       unsubRef.current();
       unsubRef.current = null;
     }
 
-    // Don't subscribe until auth is ready
     if (!enabled) {
       setData([]);
       setLoading(false);
@@ -53,19 +58,18 @@ export function useCollection<T extends DocumentData>(
     setLoading(true);
     setError(null);
 
-    // Build constraints
     const constraints: QueryConstraint[] = [];
     if (companyId) {
       constraints.push(where("companyId", "==", companyId));
     }
     constraints.push(...additionalConstraints);
 
-    // Simple query — NO orderBy to avoid composite index requirement
     const q: Query<DocumentData> = query(
       collection(db, collectionName),
       ...constraints
     );
 
+    // FIXED: Added 'as unknown as T[]' to resolve TypeScript error
     const unsub = onSnapshot(
       q,
       { includeMetadataChanges: false },
@@ -73,15 +77,21 @@ export function useCollection<T extends DocumentData>(
         const results = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        })) as T[];
+        })) as unknown as T[];
 
-        // Sort client-side by createdAt descending
         results.sort((a, b) => {
-          const aT =
-            (a as { createdAt?: { seconds?: number } }).createdAt?.seconds ?? 0;
-          const bT =
-            (b as { createdAt?: { seconds?: number } }).createdAt?.seconds ?? 0;
-          return bT - aT;
+          const aVal = (a as any)[orderByField];
+          const bVal = (b as any)[orderByField];
+          
+          // Handle Firestore timestamps
+          const aTime = aVal?.seconds ?? (typeof aVal === 'string' ? new Date(aVal).getTime() : aVal);
+          const bTime = bVal?.seconds ?? (typeof bVal === 'string' ? new Date(bVal).getTime() : bVal);
+          
+          if (orderByDirection === "desc") {
+            return bTime > aTime ? 1 : -1;
+          } else {
+            return aTime > bTime ? 1 : -1;
+          }
         });
 
         setData(results);
@@ -89,11 +99,7 @@ export function useCollection<T extends DocumentData>(
         setError(null);
       },
       (err) => {
-        console.error(
-          `[useCollection] ${collectionName} error:`,
-          err.code,
-          err.message
-        );
+        console.error(`[useCollection] ${collectionName} error:`, err.code, err.message);
         setError(err.message);
         setLoading(false);
         setData([]);
@@ -108,9 +114,7 @@ export function useCollection<T extends DocumentData>(
         unsubRef.current = null;
       }
     };
-  // enabled and companyId MUST be in deps so hook re-runs when auth loads
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [collectionName, companyId, enabled]);
+  }, [collectionName, companyId, enabled, orderByField, orderByDirection, additionalConstraints]);
 
   return { data, loading, error };
 }
