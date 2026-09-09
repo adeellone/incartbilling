@@ -39,25 +39,41 @@ export async function addClaimHistory(
   claimId: string,
   entry: Omit<ClaimHistoryEntry, "id" | "timestamp">
 ) {
-  return addDoc(historyCol(claimId), {
-    ...entry,
-    timestamp: serverTimestamp(),
-  });
+  try {
+    return await addDoc(historyCol(claimId), {
+      ...entry,
+      timestamp: serverTimestamp(),
+    });
+  } catch (err) {
+    // Don't let a failed audit log break the parent action (status change / payment)
+    console.error("[claimHistory] addClaimHistory failed:", err);
+    return null;
+  }
 }
 
 // ── Real-time listener on the subcollection ───────────────────────────────────
+// Single-field orderBy on a subcollection with no `where` clause does NOT
+// need a composite index, so this query is safe as-is. Error handler added
+// for visibility in case of permission issues.
 export function subscribeClaimHistory(
   claimId: string,
   callback: (entries: ClaimHistoryEntry[]) => void
 ) {
   const q = query(historyCol(claimId), orderBy("timestamp", "asc"));
-  return onSnapshot(q, (snap) => {
-    const entries = snap.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    })) as ClaimHistoryEntry[];
-    callback(entries);
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      const entries = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as ClaimHistoryEntry[];
+      callback(entries);
+    },
+    (err) => {
+      console.error("[claimHistory] subscribeClaimHistory error:", err.code, err.message);
+      callback([]);
+    }
+  );
 }
 
 // ── Action icon + colour helpers ─────────────────────────────────────────────

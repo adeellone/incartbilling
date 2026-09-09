@@ -14,6 +14,7 @@ import { db } from "@/lib/firebase";
 interface UseCollectionOptions {
   companyId?: string;
   enabled?: boolean;
+  // kept for API compatibility — sorting is done client-side
   orderByField?: string;
   orderByDirection?: "asc" | "desc";
   additionalConstraints?: QueryConstraint[];
@@ -37,18 +38,20 @@ export function useCollection<T extends DocumentData>(
     additionalConstraints = [],
   } = options;
 
-  const [data, setData] = useState<T[]>([]);
+  const [data, setData]     = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]   = useState<string | null>(null);
 
   const unsubRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    // Cleanup previous listener
     if (unsubRef.current) {
       unsubRef.current();
       unsubRef.current = null;
     }
 
+    // Don't subscribe until auth is ready
     if (!enabled) {
       setData([]);
       setLoading(false);
@@ -58,6 +61,7 @@ export function useCollection<T extends DocumentData>(
     setLoading(true);
     setError(null);
 
+    // Build where constraints — NO orderBy to avoid composite index errors
     const constraints: QueryConstraint[] = [];
     if (companyId) {
       constraints.push(where("companyId", "==", companyId));
@@ -69,7 +73,6 @@ export function useCollection<T extends DocumentData>(
       ...constraints
     );
 
-    // FIXED: Added 'as unknown as T[]' to resolve TypeScript error
     const unsub = onSnapshot(
       q,
       { includeMetadataChanges: false },
@@ -77,21 +80,13 @@ export function useCollection<T extends DocumentData>(
         const results = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        })) as unknown as T[];
+        }))   as unknown as T[];;
 
+        // Client-side sort — uses orderByField prop
         results.sort((a, b) => {
-          const aVal = (a as any)[orderByField];
-          const bVal = (b as any)[orderByField];
-          
-          // Handle Firestore timestamps
-          const aTime = aVal?.seconds ?? (typeof aVal === 'string' ? new Date(aVal).getTime() : aVal);
-          const bTime = bVal?.seconds ?? (typeof bVal === 'string' ? new Date(bVal).getTime() : bVal);
-          
-          if (orderByDirection === "desc") {
-            return bTime > aTime ? 1 : -1;
-          } else {
-            return aTime > bTime ? 1 : -1;
-          }
+          const aT = (a as Record<string, { seconds?: number } | undefined>)[orderByField]?.seconds ?? 0;
+          const bT = (b as Record<string, { seconds?: number } | undefined>)[orderByField]?.seconds ?? 0;
+          return orderByDirection === "desc" ? bT - aT : aT - bT;
         });
 
         setData(results);
@@ -114,7 +109,9 @@ export function useCollection<T extends DocumentData>(
         unsubRef.current = null;
       }
     };
-  }, [collectionName, companyId, enabled, orderByField, orderByDirection, additionalConstraints]);
+  // re-run when any of these change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectionName, companyId, enabled]);
 
   return { data, loading, error };
 }

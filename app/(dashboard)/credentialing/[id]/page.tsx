@@ -42,11 +42,17 @@ export default function CredentialingDetailPage() {
   const startEdit = () => { setForm(cred || {}); setEditing(true); };
 
   const handleSave = async () => {
-    if (!id) return;
-    setSaving(true);
-    await updateCredentialing(id, form);
-    setEditing(false);
-    setSaving(false);
+    try {
+      if (!id) return;
+      setSaving(true);
+      await updateCredentialing(id, form);
+      setEditing(false);
+    } catch (err: unknown) {
+      console.error("handleSave failed:", err);
+      alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updatePayerStatus = async (i: number, status: string) => {
@@ -58,10 +64,15 @@ export default function CredentialingDetailPage() {
 
   const handleAddPayer = async () => {
     if (!id || !cred || !newPayer.payerName) return;
-    const payers = [...(cred.payers || []), newPayer as PayerEnrollment];
-    await updateCredentialing(id, { payers });
-    setNewPayer({ payerName: "", payerId: "", status: "not_started", submittedDate: "", approvedDate: "", notes: "" });
-    setAddingPayer(false);
+    try {
+      const payers = [...(cred.payers || []), newPayer as PayerEnrollment];
+      await updateCredentialing(id, { payers });
+      setNewPayer({ payerName: "", payerId: "", status: "not_started", submittedDate: "", approvedDate: "", notes: "" });
+      setAddingPayer(false);
+    } catch (err: unknown) {
+      console.error("handleAddPayer failed:", err);
+      alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    }
   };
 
   const removePayer = async (i: number) => {

@@ -38,12 +38,19 @@ export default function PatientDetailPage() {
   const startEdit = () => { setForm(patient || {}); setEditing(true); };
 
   const handleSave = async () => {
-    if (!id) return;
-    setSaving(true);
-    await updatePatient(id, form);
-    setEditing(false);
-    setSaving(false);
-    // onSnapshot updates patient automatically
+    try {
+      if (!id) return;
+      setSaving(true);
+      await updatePatient(id, form);
+      setEditing(false);
+      setSaving(false);
+      // onSnapshot updates patient automatically
+    } catch (err: unknown) {
+      console.error("handleSave failed:", err);
+      alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!ready) return (

@@ -33,62 +33,77 @@ export default function ClaimDetailPage() {
   const [paidAmount,     setPaidAmount]     = useState("");
   const [showPayment,    setShowPayment]    = useState(false);
   const [activeTab,      setActiveTab]      = useState<"details" | "history">("details");
+  const [error,          setError]          = useState("");
 
   const userName = profile?.displayName ?? "Unknown User";
   const userId   = user?.uid ?? "";
 
   // ── Status change with audit entry ───────────────────────────────────────
+  // FIXED: try/catch wraps everything, setUpdatingStatus(false) always runs
+  // via finally — this is what was causing the button to get stuck.
   const handleStatus = async (newStatus: ClaimStatus) => {
     if (!id || !claim) return;
+    setError("");
     setUpdatingStatus(true);
 
-    const oldStatus = claim.status;
-    await updateClaim(id, { status: newStatus });
+    try {
+      const oldStatus = claim.status;
+      await updateClaim(id, { status: newStatus });
 
-    // Audit entry
-    await addClaimHistory(id, {
-      action: "status_changed",
-      label: `Status changed from ${oldStatus} to ${newStatus}`,
-      field: "status",
-      oldValue: oldStatus,
-      newValue: newStatus,
-      userId,
-      userName,
-    });
+      // Audit entry — failure here should not block the status change itself
+      await addClaimHistory(id, {
+        action: "status_changed",
+        label: `Status changed from ${oldStatus} to ${newStatus}`,
+        field: "status",
+        oldValue: oldStatus,
+        newValue: newStatus,
+        userId,
+        userName,
+      });
 
-    // Notification
-    if (companyId) {
-      await notify.claimStatusChanged(companyId, claim.patientName, newStatus, id);
+      // Notification
+      if (companyId) {
+        await notify.claimStatusChanged(companyId, claim.patientName, newStatus, id);
+      }
+    } catch (err: unknown) {
+      console.error("handleStatus failed:", err);
+      setError(err instanceof Error ? err.message : "Failed to update status. Please try again.");
+    } finally {
+      setUpdatingStatus(false);
     }
-
-    setUpdatingStatus(false);
   };
 
   // ── Payment post with audit entry ────────────────────────────────────────
   const handlePayment = async () => {
     if (!id || !claim) return;
+    setError("");
     const amount = parseFloat(paidAmount) || 0;
 
-    await updateClaim(id, { paidAmount: amount, status: "paid" });
+    try {
+      await updateClaim(id, { paidAmount: amount, status: "paid" });
 
-    // Audit entry
-    await addClaimHistory(id, {
-      action: "payment_posted",
-      label: `Payment of $${amount.toFixed(2)} posted`,
-      field: "paidAmount",
-      oldValue: `$${(claim.paidAmount || 0).toFixed(2)}`,
-      newValue: `$${amount.toFixed(2)}`,
-      userId,
-      userName,
-    });
+      // Audit entry
+      await addClaimHistory(id, {
+        action: "payment_posted",
+        label: `Payment of $${amount.toFixed(2)} posted`,
+        field: "paidAmount",
+        oldValue: `$${(claim.paidAmount || 0).toFixed(2)}`,
+        newValue: `$${amount.toFixed(2)}`,
+        userId,
+        userName,
+      });
 
-    // Notification
-    if (companyId) {
-      await notify.paymentPosted(companyId, claim.patientName, amount, id);
+      // Notification
+      if (companyId) {
+        await notify.paymentPosted(companyId, claim.patientName, amount, id);
+      }
+
+      setShowPayment(false);
+      setPaidAmount("");
+    } catch (err: unknown) {
+      console.error("handlePayment failed:", err);
+      setError(err instanceof Error ? err.message : "Failed to post payment. Please try again.");
     }
-
-    setShowPayment(false);
-    setPaidAmount("");
   };
 
   if (!ready) return (
@@ -120,6 +135,10 @@ export default function ClaimDetailPage() {
           {claim.status}
         </span>
       </div>
+
+      {error && (
+        <div className="err" style={{ marginBottom: 20 }}>⚠️ {error}</div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 4, marginBottom: 24, borderBottom: "1px solid var(--border)", paddingBottom: 0 }}>

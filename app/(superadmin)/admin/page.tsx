@@ -34,9 +34,16 @@ export default function AdminPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true);
-    await addCompany(form);
-    setShowForm(false); setSaving(false);
-    setForm({ name: "", email: "", phone: "", plan: "trial", ownerId: "", address: "", active: true });
+    try {
+      await addCompany(form);
+      setShowForm(false); setSaving(false);
+      setForm({ name: "", email: "", phone: "", plan: "trial", ownerId: "", address: "", active: true });
+    } catch (err: unknown) {
+      console.error("handleAdd failed:", err);
+      alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!ready || !isSuperAdmin) return (

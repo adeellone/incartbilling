@@ -53,15 +53,26 @@ export default function ProvidersPage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await addProvider({ ...form, companyId: companyId! });
-    setForm(EMPTY);
-    setShowForm(false);
-    setSaving(false);
+    try {
+      await addProvider({ ...form, companyId: companyId! });
+      setForm(EMPTY);
+      setShowForm(false);
+    } catch (err: unknown) {
+      console.error("handleAdd failed:", err);
+      alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete ${name}?`)) return;
-    await deleteProvider(id);
+    try {
+      await deleteProvider(id);
+    } catch (err: unknown) {
+      console.error("handleDelete failed:", err);
+      alert(err instanceof Error ? err.message : "Failed to delete provider. Please try again.");
+    }
   };
 
   if (!ready)

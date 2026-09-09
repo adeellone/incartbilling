@@ -46,8 +46,13 @@ export default function ClaimsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this claim?")) return;
-    await deleteClaim(id);
-    // No need to reload — onSnapshot fires automatically
+    try {
+      await deleteClaim(id);
+      // No need to reload — onSnapshot fires automatically
+    } catch (err: unknown) {
+      console.error("handleDelete failed:", err);
+      alert(err instanceof Error ? err.message : "Failed to delete claim. Please try again.");
+    }
   };
 
   if (!ready)

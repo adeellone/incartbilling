@@ -41,21 +41,33 @@ export default function DocumentsPage() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !form.providerId) return;
-    setUploading(true); setProgress(0);
-    const path = `documents/${companyId}/${form.providerId}/${Date.now()}_${file.name}`;
-    const url  = await uploadFile(file, path, setProgress);
-    const status = getDocStatusFromExpiry(form.expiryDate);
-    await addDocument({ companyId: companyId!, ...form, fileName: file.name, fileUrl: url, storagePath: path, fileSize: file.size, status, notes: form.notes });
-    setFile(null);
-    if (fileRef.current) fileRef.current.value = "";
-    setForm({ providerId: "", providerName: "", type: "license", name: "", expiryDate: "", notes: "" });
-    setShowForm(false); setUploading(false);
+    try {
+      if (!file || !form.providerId) return;
+      setUploading(true); setProgress(0);
+      const path = `documents/${companyId}/${form.providerId}/${Date.now()}_${file.name}`;
+      const url  = await uploadFile(file, path, setProgress);
+      const status = getDocStatusFromExpiry(form.expiryDate);
+      await addDocument({ companyId: companyId!, ...form, fileName: file.name, fileUrl: url, storagePath: path, fileSize: file.size, status, notes: form.notes });
+      setFile(null);
+      if (fileRef.current) fileRef.current.value = "";
+      setForm({ providerId: "", providerName: "", type: "license", name: "", expiryDate: "", notes: "" });
+      setShowForm(false); setUploading(false);
+    } catch (err: unknown) {
+      console.error("handleUpload failed:", err);
+      alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleDelete = async (doc: ProviderDocument) => {
     if (!confirm(`Delete "${doc.name}"?`)) return;
-    await deleteDocument(doc.id!, doc.storagePath);
+    try {
+      await deleteDocument(doc.id!, doc.storagePath);
+    } catch (err: unknown) {
+      console.error("handleDelete failed:", err);
+      alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    }
   };
 
   const filtered = filter === "all" ? docs

@@ -62,8 +62,15 @@ export default function CredentialingPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true);
-    await addCredentialing({ ...form, companyId: companyId! });
-    setShowForm(false); setSaving(false);
+    try {
+      await addCredentialing({ ...form, companyId: companyId! });
+      setShowForm(false); setSaving(false);
+    } catch (err: unknown) {
+      console.error("handleAdd failed:", err);
+      alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!ready) return (

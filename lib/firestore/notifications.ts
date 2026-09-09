@@ -5,7 +5,6 @@ import {
   doc,
   query,
   where,
-  orderBy,
   limit,
   onSnapshot,
   writeBatch,
@@ -43,11 +42,17 @@ const COL = "notifications";
 export async function createNotification(
   data: Omit<AppNotification, "id" | "createdAt" | "read">
 ) {
-  return addDoc(collection(db, COL), {
-    ...data,
-    read: false,
-    createdAt: serverTimestamp(),
-  });
+  try {
+    return await addDoc(collection(db, COL), {
+      ...data,
+      read: false,
+      createdAt: serverTimestamp(),
+    });
+  } catch (err) {
+    // Don't let a failed notification break the parent action (e.g. saving a claim)
+    console.error("[notifications] createNotification failed:", err);
+    return null;
+  }
 }
 
 // ── Mark one as read ─────────────────────────────────────────────────────────
@@ -57,6 +62,7 @@ export async function markNotificationRead(id: string) {
 
 // ── Mark ALL unread as read for a company ────────────────────────────────────
 export async function markAllNotificationsRead(companyId: string) {
+  // No orderBy here — only one constraint, no composite index needed
   const q = query(
     collection(db, COL),
     where("companyId", "==", companyId),
@@ -70,6 +76,11 @@ export async function markAllNotificationsRead(companyId: string) {
 }
 
 // ── Real-time listener (last 30, newest first) ───────────────────────────────
+// IMPORTANT: No orderBy in the Firestore query — where + orderBy on different
+// fields requires a composite index in Firebase. If that index isn't created,
+// Firestore silently fails and the callback never fires (this was the bug:
+// notifications never appeared, with no visible error to the user).
+// Fix: query with only `where`, sort client-side instead.
 export function subscribeNotifications(
   companyId: string,
   callback: (notifications: AppNotification[]) => void
@@ -77,16 +88,32 @@ export function subscribeNotifications(
   const q = query(
     collection(db, COL),
     where("companyId", "==", companyId),
-    orderBy("createdAt", "desc"),
-    limit(30)
+    limit(50)
   );
-  return onSnapshot(q, (snap) => {
-    const results = snap.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    })) as AppNotification[];
-    callback(results);
-  });
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      const results = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as AppNotification[];
+
+      // Sort client-side by createdAt descending, then take top 30
+      results.sort((a, b) => {
+        const aT = a.createdAt?.seconds ?? 0;
+        const bT = b.createdAt?.seconds ?? 0;
+        return bT - aT;
+      });
+
+      callback(results.slice(0, 30));
+    },
+    (err) => {
+      // Surface errors instead of failing silently
+      console.error("[notifications] subscribeNotifications error:", err.code, err.message);
+      callback([]);
+    }
+  );
 }
 
 // ── Notification factory helpers ─────────────────────────────────────────────

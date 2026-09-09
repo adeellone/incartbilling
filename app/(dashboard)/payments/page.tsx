@@ -45,19 +45,25 @@ export default function PaymentsPage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await addDoc(collection(db, "payments"), {
+    try {
+      await addDoc(collection(db, "payments"), {
       ...form, companyId: companyId!, postedAt: serverTimestamp(),
-    });
-    if (form.claimId) {
+      });
+      if (form.claimId) {
       await updateClaim(form.claimId, { paidAmount: form.amount, status: "paid" });
-    }
-    // 🔔 Notify payment posted
-    if (companyId && form.patientName) {
+      }
+      // 🔔 Notify payment posted
+      if (companyId && form.patientName) {
       await notify.paymentPosted(companyId, form.patientName, form.amount, form.claimId);
+      }
+      setForm({ claimId: "", patientName: "", amount: 0, type: "insurance", method: "EFT", notes: "" });
+      setShowForm(false);
+    } catch (err: unknown) {
+      console.error("handleAdd failed:", err);
+      alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    setForm({ claimId: "", patientName: "", amount: 0, type: "insurance", method: "EFT", notes: "" });
-    setShowForm(false);
-    setSaving(false);
   };
 
   const total = payments.reduce((s, p) => s + (p.amount || 0), 0);

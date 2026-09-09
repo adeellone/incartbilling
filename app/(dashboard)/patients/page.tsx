@@ -54,16 +54,28 @@ export default function PatientsPage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await addPatient({ ...form, companyId: companyId! });
-    setForm(EMPTY);
-    setShowForm(false);
-    setSaving(false);
-    // onSnapshot fires automatically — no manual reload needed
+    try {
+      await addPatient({ ...form, companyId: companyId! });
+      setForm(EMPTY);
+      setShowForm(false);
+      setSaving(false);
+      // onSnapshot fires automatically — no manual reload needed
+    } catch (err: unknown) {
+      console.error("handleAdd failed:", err);
+      alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete ${name}?`)) return;
-    await deletePatient(id);
+    try {
+      await deletePatient(id);
+    } catch (err: unknown) {
+      console.error("handleDelete failed:", err);
+      alert(err instanceof Error ? err.message : "Failed to delete patient. Please try again.");
+    }
   };
 
   if (!ready)

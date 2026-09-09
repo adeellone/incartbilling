@@ -1,6 +1,6 @@
 "use client";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
 import { useReady } from "@/hooks/useReady";
 import { useCollection } from "@/hooks/useCollection";
 import { addClaim, ClaimCode } from "@/lib/firestore/claims";
@@ -11,7 +11,23 @@ export const dynamic = "force-dynamic";
 
 const EC: ClaimCode = { code: "", description: "", units: 1, charge: 0 };
 
+// ── Outer page: wraps the form in Suspense because useSearchParams requires it ──
 export default function NewClaimPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="dash-content" style={{ textAlign: "center", paddingTop: 80, color: "var(--muted)" }}>
+          Loading...
+        </div>
+      }
+    >
+      <NewClaimForm />
+    </Suspense>
+  );
+}
+
+// ── Inner component: all the actual logic lives here ────────────────────────
+function NewClaimForm() {
   const router  = useRouter();
   const params  = useSearchParams();
   const { ready, queryCompanyId, companyId } = useReady();
@@ -20,6 +36,7 @@ export default function NewClaimPage() {
   const { data: providers } = useCollection<Provider>("providers", { companyId: queryCompanyId, enabled: ready });
 
   const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState("");
   const [form, setForm] = useState({
     patientId:   params.get("patientId")   || "",
     patientName: params.get("patientName") || "",
@@ -39,7 +56,7 @@ export default function NewClaimPage() {
       const p = patients.find(p => p.id === form.patientId);
       if (p) setForm(f => ({ ...f, patientName: `${p.firstName} ${p.lastName}` }));
     }
-  }, [patients, form.patientId]);
+  }, [patients, form.patientId, form.patientName]);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
@@ -69,10 +86,50 @@ export default function NewClaimPage() {
     setForm(f => ({ ...f, providerId: e.target.value, providerName: p ? `${p.firstName} ${p.lastName}` : "" }));
   };
 
+  // ── THE FIX: full validation + try/catch + setSaving(false) in finally ──────
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setSaving(true);
-    await addClaim({ ...form, companyId: companyId!, diagnosisCodes: form.diagnosisCodes.filter(Boolean), totalCharge });
-    router.push("/claims");
+    e.preventDefault();
+    setError("");
+
+    // Validate required fields before hitting Firestore
+    if (!form.patientId) {
+      setError("Please select a patient.");
+      return;
+    }
+    if (!form.providerId) {
+      setError("Please select a provider.");
+      return;
+    }
+    if (!companyId) {
+      setError("Company not loaded yet. Please wait a moment and try again.");
+      return;
+    }
+    if (form.procedureCodes.every(c => !c.code)) {
+      setError("Add at least one procedure (CPT) code.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await addClaim({
+        ...form,
+        companyId,
+        diagnosisCodes: form.diagnosisCodes.filter(Boolean),
+        totalCharge,
+      });
+      router.push("/claims");
+    } catch (err: unknown) {
+      // This is the actual bug fix — previously errors were swallowed silently
+      // and the button stayed stuck on "Saving..." forever with no feedback.
+      console.error("Failed to save claim:", err);
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to save claim. Please check your connection and try again.";
+      setError(message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!ready) return (
@@ -85,6 +142,12 @@ export default function NewClaimPage() {
         <button className="btn btn-ghost btn-sm" onClick={() => router.push("/claims")}>← Back</button>
         <h1 className="sora" style={{ fontSize: 24, fontWeight: 800 }}>New Claim</h1>
       </div>
+
+      {error && (
+        <div className="err" style={{ marginBottom: 20 }}>
+          ⚠️ {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24 }}>
@@ -100,6 +163,11 @@ export default function NewClaimPage() {
                     <option value="">Select patient...</option>
                     {patients.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
                   </select>
+                  {patients.length === 0 && (
+                    <div style={{ fontSize: 12, color: "var(--yellow)", marginTop: 6 }}>
+                      ⚠️ No patients found. <a href="/patients" className="tbl-link">Add a patient first</a>.
+                    </div>
+                  )}
                 </div>
                 <div className="form-group">
                   <label className="form-label">PROVIDER ({providers.length} available)</label>
@@ -107,6 +175,11 @@ export default function NewClaimPage() {
                     <option value="">Select provider...</option>
                     {providers.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
                   </select>
+                  {providers.length === 0 && (
+                    <div style={{ fontSize: 12, color: "var(--yellow)", marginTop: 6 }}>
+                      ⚠️ No providers found. <a href="/providers" className="tbl-link">Add a provider first</a>.
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="form-row">

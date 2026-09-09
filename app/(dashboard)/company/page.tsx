@@ -39,13 +39,19 @@ export default function CompanyPage() {
     setForm(f => ({ ...f, [k]: e.target.value }));
 
   const handleSave = async () => {
-    if (!companyId) return;
-    setSaving(true);
-    await updateCompany(companyId, form);
-    const updated = await getCompany(companyId);
-    setCompany(updated);
-    setEditing(false);
-    setSaving(false);
+    try {
+      if (!companyId) return;
+      setSaving(true);
+      await updateCompany(companyId, form);
+      const updated = await getCompany(companyId);
+      setCompany(updated);
+      setEditing(false);
+    } catch (err: unknown) {
+      console.error("handleSave failed:", err);
+      alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!ready || !company) return (

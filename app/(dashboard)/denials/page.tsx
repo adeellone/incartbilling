@@ -72,16 +72,22 @@ export default function DenialsPage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await addDoc(collection(db, "denials"), {
+    try {
+      await addDoc(collection(db, "denials"), {
       ...form, companyId: companyId!, createdAt: serverTimestamp(),
-    });
-    // 🔔 Notify denial logged
-    if (companyId && form.patientName) {
+      });
+      // 🔔 Notify denial logged
+      if (companyId && form.patientName) {
       await notify.denialLogged(companyId, form.patientName, form.reasonCode, form.claimId);
+      }
+      setForm({ claimId: "", patientName: "", reasonCode: "CO-4", reasonDesc: REASONS["CO-4"], deniedAmount: 0, appealStatus: "not_started", dueDate: "", notes: "" });
+      setShowForm(false);
+    } catch (err: unknown) {
+      console.error("handleAdd failed:", err);
+      alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    setForm({ claimId: "", patientName: "", reasonCode: "CO-4", reasonDesc: REASONS["CO-4"], deniedAmount: 0, appealStatus: "not_started", dueDate: "", notes: "" });
-    setShowForm(false);
-    setSaving(false);
   };
 
   const updateAppeal = async (id: string, appealStatus: AppealStatus) => {
