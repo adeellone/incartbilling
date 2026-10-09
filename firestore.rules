@@ -44,6 +44,18 @@ service cloud.firestore {
       allow read: if isAuth();
       allow write: if canWrite();
     }
+    match /payerConfigs/{docId} {
+      // Superadmin can read/write all payer configs
+      allow read: if isSuperAdmin();
+      allow write: if isSuperAdmin();
+      // Company admins can read configs for their own company
+      allow read: if isCompanyAdmin() && sameCompany(resource.data.companyId);
+      // Company admins can create/update only their own configs
+      allow create: if isCompanyAdmin() && sameCompany(request.auth.uid);
+      allow update: if isCompanyAdmin() && sameCompany(request.auth.uid);
+      // Billing staff can read configs
+      allow read: if isBillingStaff();
+    }
     match /denials/{id} {
       allow read: if isAuth();
       allow write: if canWrite();

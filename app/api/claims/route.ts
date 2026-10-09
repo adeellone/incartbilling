@@ -18,18 +18,26 @@
  * Response on success:
  * {
  *   claimId: string,
- *   submissionRef: string,
+ *   submissionRef: string,      // clearinghouse tracking ID (or sim- prefix for simulator)
  *   ediFile?: { name: string; size: number; contentBase64: string },
- *   nextStatus: "ready" | "generated" | "submitted",
+ *   nextStatus: "ready" | "generated" | "submitted" | "acknowledgment_pending",
  *   validationErrors: string[],
+ *   payerConfigId: string,
  * }
  * 
  * Response on error:
  * { error: string, validationErrors: string[] }
+ * 
+ * Workflow:
+ * 1. Validate claim data against payer config
+ * 2. Generate EDI 837P file
+ * 3. Record submission attempt (status stays "generated" until real provider confirms)
+ * 4. Return submissionRef for external tracking
+ * 5. Real submission status must be updated separately after provider acknowledgment
  */
 
 import { NextResponse } from "next/server";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   validateClaimForSubmission,
@@ -38,7 +46,15 @@ import {
   recordSubmissionAttempt,
 } from "@/lib/edi/validation";
 import { generateEdi837P } from "@/lib/edi/generate";
+import {
+  fetchPayerConfigs,
+  fetchPayerConfig,
+  validatePayerConfig,
+} from "@/lib/payer/service";
+import { simulatorAdapter } from "@/lib/clearinghouse/simulator";
 import type { FullValidationResult } from "@/lib/edi/validation";
+import type { PayerConfig } from "@/lib/payer/types";
+import type { Claim } from "@/lib/firestore/claims";
 
 export async function POST(request: Request) {
   try {
@@ -56,7 +72,41 @@ export async function POST(request: Request) {
     } = body;
 
     // ==========================================
-    // 1. Validate incoming data
+    // 1. Fetch and validate payer configuration
+    // ==========================================
+
+    let payerConfig: PayerConfig | null = null;
+
+    if (payerConfigId) {
+      payerConfig = await fetchPayerConfig(payerConfigId);
+    }
+
+    // If no config ID provided or not found, try to get active sandbox config for company
+    if (!payerConfig) {
+      if (companyId) {
+        payerConfig = await getActiveSandboxConfig(companyId);
+      }
+    }
+
+    // If still no config, create/default to sandbox
+    if (!payerConfig) {
+      payerConfig = SANDBOX_PAYER_CONFIG;
+    }
+
+    // Validate the payer configuration
+    const payerValidation = validatePayerConfig(payerConfig);
+    if (!payerValidation.valid) {
+      return NextResponse.json(
+        {
+          error: "Invalid payer configuration",
+          validationErrors: payerValidation.errors,
+        },
+        { status: 400 }
+      );
+    }
+
+    // ==========================================
+    // 2. Validate claim data against payer config
     // ==========================================
 
     // Build a minimal claim object for validation
@@ -87,19 +137,8 @@ export async function POST(request: Request) {
       },
     };
 
-    // We need a payer config for validation. Since we don't have it from the body,
-    // we'll use a default minimal config and flag it for the caller.
-    // In production, fetch from Firestore payer configs.
-    const defaultPayerConfig: PayerConfig = {
-      payerId: "PAYER_ID_DEFAULT",
-      payerName: "Default Payer",
-      billingProviderNPI: "1234567890",
-      placeOfService: "11", // Default: Office
-      monetaryFormat: "8",
-    };
-
     const validation =
-      await validateClaimForSubmission(claimPlaceholder, defaultPayerConfig);
+      await validateClaimForSubmission(claimPlaceholder, payerConfig);
 
     // If there are validation errors, return them early
     if (!validation.valid) {
@@ -108,13 +147,14 @@ export async function POST(request: Request) {
           error: "Validation failed",
           validationErrors: validation.errors,
           nextStatus: validation.nextStatus,
+          payerConfigId,
         },
         { status: 400 }
       );
     }
 
     // ==========================================
-    // 2. If a real claim document exists, use it
+    // 3. Fetch real claim document if patientId provided
     // ==========================================
 
     let realClaim: Claim | null = null;
@@ -141,9 +181,10 @@ export async function POST(request: Request) {
     const claimToUse = realClaim || claimPlaceholder;
 
     // ==========================================
-    // 3. Initialize/update submission status to "ready"
+    // 4. Prepare claim for EDI generation
     // ==========================================
 
+    // Update submission status to "ready" (claim is validated, ready for EDI generation)
     await updateSubmissionStatus(realClaim?.id || "", "ready", 1);
 
     // ==========================================
@@ -151,33 +192,53 @@ export async function POST(request: Request) {
     // ==========================================
 
     const ediInfo = await generateEdi837P({
-      payerConfig: {
-        ...defaultPayerConfig,
-        payerId: payerConfigId || defaultPayerConfig.payerId,
-        placeOfService: defaultPayerConfig.placeOfService,
-      },
+      payerConfig,
       claim: realClaim || claimPlaceholder,
       includePatientLoop: true,
       includeRenderingProvider: false,
     });
 
     // ==========================================
-    // 5. Record the submission attempt
+    // 5. Submit claim via clearinghouse adapter
     // ==========================================
 
+    // Use the simulator adapter by default; in production, replace with
+    // a real adapter instance that implements ClearinghouseAdapter.
+    const submissionResponse = await (simulatorAdapter.submitClaim
+      ? simulatorAdapter.submitClaim(payerConfig, realClaim || claimPlaceholder)
+      : {
+        // Fallback: simulate submission without adapter
+        submissionId: `sim-${Math.floor(100000000 + Math.random() * 899999999)}`,
+        submittedAt: new Date().toISOString(),
+        status: "pending",
+        acknowledgment: undefined,
+        errors: [
+          "No clearinghouse adapter configured. Simulator not available.",
+        ],
+        providerRef: (realClaim?.providerId || ""),
+      ]);
+
+    // ==========================================
+    // 6. Record the submission attempt
+    // ==========================================
+
+    // The claim status should NOT automatically change to "submitted" here.
+    // It should remain "generated" until the provider confirms receipt.
+    // We record the attempt with "generated" status, and the calling system
+    // should update to "submitted" only after the provider confirms receipt.
     await recordSubmissionAttempt(
       realClaim?.id || "",
-      "submitted",
-      ediInfo.controlNumbers.interchangeControlNumber
+      "generated", // stays "generated" until real provider confirms
+      submissionResponse.submissionId
     );
 
     // ==========================================
-    // 6. Return response
+    // 7. Return response
     // ==========================================
 
     const response = {
       claimId: realClaim?.id || "",
-      submissionRef: ediInfo.controlNumbers.interchangeControlNumber,
+      submissionRef: submissionResponse.submissionId,
       ediFile: ediInfo.contentBase64
         ? {
             name: `claim-${realClaim?.id || "unknown"}-${new Date()
@@ -189,6 +250,10 @@ export async function POST(request: Request) {
         : undefined,
       nextStatus: validation.nextStatus,
       validationErrors: validation.errors,
+      payerConfigId,
+      // Inform the caller about the submission pipeline state
+      submissionStatus: "generated", // "generated" until real provider confirms
+      simulator: simulatorAdapter.adapterId,
     };
 
     return NextResponse.json(response, { status: 200 });
@@ -198,6 +263,8 @@ export async function POST(request: Request) {
       {
         error: err.message || "Unexpected error during claim submission",
         validationErrors: [],
+        nextStatus: "draft",
+        payerConfigId: body?.payerConfigId,
       },
       { status: 500 }
     );
