@@ -3,9 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isAuth() { return request.auth != null; }
+    function signedUp() { return isAuth() && exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
     function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
-    function role() { return userDoc().role; }
-    function companyId() { return userDoc().companyId; }
+    function role() { return signedUp() ? userDoc().role : null; }
+    function companyId() { return signedUp() ? userDoc().companyId : null; }
     function isSuperAdmin() { return isAuth() && role() == 'superadmin'; }
     function isCompanyAdmin() { return isAuth() && role() == 'company_admin'; }
     function isBillingStaff() { return isAuth() && role() == 'billing_staff'; }
@@ -18,7 +19,9 @@ service cloud.firestore {
     }
     match /companies/{cid} {
       allow read: if isAuth() && (isSuperAdmin() || sameCompany(cid));
-      allow write: if isAuth() && (isSuperAdmin() || (isCompanyAdmin() && sameCompany(cid)));
+      allow write: if isAuth() && (isSuperAdmin() || (signedUp() && isCompanyAdmin() && sameCompany(cid)));
+      // Allow first-time company creation during signup (user doc doesn't exist yet)
+      allow create: if isAuth() && !signedUp();
     }
     match /patients/{id} {
       allow read: if isAuth() && (isSuperAdmin() || sameCompany(resource.data.companyId));
@@ -27,6 +30,11 @@ service cloud.firestore {
     match /claims/{id} {
       allow read: if isAuth();
       allow write: if canWrite();
+    }
+    match /claims/{id}/history/{entry} {
+      allow read: if isAuth() && (isSuperAdmin() || sameCompany(/databases/$(database)/documents/claims/$(id).data.companyId));
+      allow create: if canWrite();
+      allow update, delete: if isSuperAdmin();
     }
     match /providers/{id} {
       allow read: if isAuth() && (isSuperAdmin() || sameCompany(resource.data.companyId));
