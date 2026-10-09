@@ -8,6 +8,35 @@ import {
 export type ClaimStatus = "draft" | "submitted" | "paid" | "denied" | "pending";
 export interface ClaimCode { code: string; description: string; units: number; charge: number; }
 
+export interface ClaimSubmission {
+  /** Unique submission reference (e.g. clearinghouse tracking ID) */
+  submissionRef?: string;
+  /** Submission attempt number, starting at 1 */
+  attempt: number;
+  /** Scheduled/actual submission timestamp */
+  submittedAt?: Timestamp;
+  /** Clearinghouse or provider identifier */
+  providerId?: string;
+  /** Submission status pipeline */
+  submissionStatus: "draft" | "ready" | "generated" | "submitted" | "accepted" | "rejected" | "acknowledgment_pending";
+  /** Validation result from last check */
+  lastValidation?: {
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+  };
+  /** EDI 837 file generated (base64 or blob storage reference) */
+  ediFile?: {
+    name: string;
+    size: number;
+    generatedAt: Timestamp;
+    /** Base64-encoded content for download */
+    contentBase64?: string;
+  };
+  /** Payer-specific configuration used for this submission */
+  payerConfigId?: string;
+}
+
 export interface Claim {
   id?: string;
   companyId: string;
@@ -20,6 +49,8 @@ export interface Claim {
   notes: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
+  /** Extended submission metadata */
+  submission: ClaimSubmission;
 }
 
 const COL = "claims";
@@ -43,13 +74,33 @@ export async function getClaim(id: string): Promise<Claim | null> {
 }
 
 export async function addClaim(data: Omit<Claim, "id" | "createdAt" | "updatedAt">) {
+  const submission: ClaimSubmission = {
+    attempt: 1,
+    submissionStatus: "draft",
+  };
   return addDoc(collection(db, COL), {
-    ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    ...data,
+    submission,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
 }
 
 export async function updateClaim(id: string, data: Partial<Claim>) {
-  return updateDoc(doc(db, COL, id), { ...data, updatedAt: serverTimestamp() });
+  const claimRef = doc(db, COL, id);
+  const snap = await getDoc(claimRef);
+  const existing = snap.exists() ? snap.data() as Claim : { submission: { attempt: 1, submissionStatus: "draft" } } as Claim;
+
+  // Merge submission: keep existing attempt, only update status if explicitly provided
+  const submission = data.submission
+    ? { ...existing.submission, ...data.submission, attempt: existing.submission.attempt + (data.submission.attempt ? 0 : 0) }
+    : existing.submission;
+
+  return updateDoc(claimRef, {
+    ...data,
+    submission,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function deleteClaim(id: string) {

@@ -5,15 +5,24 @@ import { useCollection } from "@/hooks/useCollection";
 import { useReady } from "@/hooks/useReady";
 import { useAuth } from "@/context/AuthContext";
 import { useClaimHistory } from "@/hooks/useClaimHistory";
-import { updateClaim, Claim, ClaimStatus } from "@/lib/firestore/claims";
+import { updateClaim, Claim, ClaimStatus, ClaimSubmission } from "@/lib/firestore/claims";
 import { addClaimHistory, ACTION_META, formatHistoryTime } from "@/lib/firestore/claimHistory";
 import { notify } from "@/lib/firestore/notifications";
+import {
+  validateClaimForSubmission,
+  prepareClaimForEdi,
+  updateSubmissionStatus,
+  recordSubmissionAttempt,
+} from "@/lib/edi/validation";
+import { generateEdi837P } from "@/lib/edi/generate";
 
 const STATUS_BADGE: Record<string, string> = {
   paid: "badge-green", submitted: "badge-blue",
   denied: "badge-red", draft: "badge-gray", pending: "badge-yellow",
 };
 const STATUSES: ClaimStatus[] = ["draft", "submitted", "pending", "paid", "denied"];
+const SUBMISSION_STATUSES: ClaimSubmission["submissionStatus"][] =
+  ["draft", "ready", "generated", "submitted", "accepted", "rejected", "acknowledgment_pending"];
 
 export default function ClaimDetailPage() {
   const { id }  = useParams<{ id: string }>();
@@ -34,6 +43,15 @@ export default function ClaimDetailPage() {
   const [showPayment,    setShowPayment]    = useState(false);
   const [activeTab,      setActiveTab]      = useState<"details" | "history">("details");
   const [error,          setError]          = useState("");
+
+  // ── EDI Submission workflow state ───────────────────────────────────────
+  const [ediValidating, setEdiValidating]   = useState(false);
+  const [ediGenerated, setEdiGenerated]     = useState(false);
+  const [ediFileUrl, setEdiFileUrl]       = useState<string | null>(null);
+  const [submissionStatus, setSubmissionStatus] = useState<ClaimSubmission["submissionStatus"]>("draft");
+  const [submissionAttempt, setSubmissionAttempt] = useState(1);
+  const [submissionError, setSubmissionError] = useState("");
+  const [showEdiPanel, setShowEdiPanel]   = useState(false);
 
   const userName = profile?.displayName ?? "Unknown User";
   const userId   = user?.uid ?? "";
@@ -103,6 +121,101 @@ export default function ClaimDetailPage() {
     } catch (err: unknown) {
       console.error("handlePayment failed:", err);
       setError(err instanceof Error ? err.message : "Failed to post payment. Please try again.");
+    }
+  };
+
+  // ── EDI Submission handlers ──────────────────────────────────────────────
+  const handleValidateClaim = async () => {
+    if (!id || !claim) return;
+    setEdiValidating(true);
+    setSubmissionError("");
+
+    try {
+      const payerConfig: any = {
+        payerId: "PAYER123",
+        payerName: "Test Payer",
+        billingProviderNPI: claim.providerName ? claim.providerName.slice(0, 10) : "1234567890",
+        placeOfService: "11",
+      };
+
+      const validation = await prepareClaimForEdi(id, payerConfig);
+      setSubmissionStatus(validation.nextStatus || "draft");
+
+      if (validation.valid) {
+        setEdiValidating(false);
+        setShowEdiPanel(true);
+      } else {
+        setSubmissionError(validation.errors.join(". "));
+        setEdiValidating(false);
+      }
+    } catch (err: any) {
+      console.error("handleValidateClaim failed:", err);
+      setSubmissionError(err.message || "Validation failed unexpectedly");
+      setEdiValidating(false);
+    }
+  };
+
+  const handleGenerateEdi = async () => {
+    if (!id || !claim) return;
+    setEdiValidating(true);
+    setSubmissionError("");
+
+    try {
+      const payerConfig: any = {
+        payerId: "PAYER123",
+        payerName: "Test Payer",
+        billingProviderNPI: claim.providerName ? claim.providerName.slice(0, 10) : "1234567890",
+        placeOfService: "11",
+        monetaryFormat: "8",
+      };
+
+      const options: EdiGenerationOptions = {
+        payerConfig,
+        claim,
+        includePatientLoop: true,
+        includeRenderingProvider: false,
+      };
+
+      const ediInfo = await generateEdi837P(options);
+      setEdiFileUrl(`data:application/edi+text;base64,${ediInfo.contentBase64}`);
+      setEdiGenerated(true);
+      setSubmissionStatus("generated");
+
+      // Record the generation as an attempt
+      await recordSubmissionAttempt(id, "generated", ediInfo.controlNumbers.interchangeControlNumber);
+    } catch (err: any) {
+      console.error("handleGenerateEdi failed:", err);
+      setSubmissionError(err.message || "EDI generation failed");
+      setEdiValidating(false);
+    }
+  };
+
+  const handleSubmitClaim = async () => {
+    if (!id || !claim) return;
+    setEdiValidating(true);
+    setSubmissionError("");
+
+    try {
+      // Update status to submitted
+      await updateSubmissionStatus(id, "submitted", submissionAttempt);
+
+      // Record submission attempt
+      await recordSubmissionAttempt(id, "submitted", `REF-${Math.floor(100000 + Math.random() * 899999)}`);
+
+      // Show notification
+      if (companyId && claim.patientName) {
+        await notify.claimStatusChanged(companyId, claim.patientName, "submitted", id);
+      }
+
+      setSubmissionStatus("submitted");
+      setEdiValidating(false);
+
+      // Close panel
+      setShowEdiPanel(false);
+    } catch (err: any) {
+      console.error("handleSubmitClaim failed:", err);
+      setSubmissionError(err.message || "Submission failed");
+      setEdiValidating(false);
     }
   };
 
